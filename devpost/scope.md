@@ -32,7 +32,7 @@ Tone and interaction are borrowed from Hemingway Editor (https://hemingwayapp.co
 Learning goal (from `1-start`): getting reliable structured output from an LLM, and verifying it in code rather than trusting it. The quote-exists check is the concrete exercise of that. The personal story behind the idea was not given; "not established" is fine.
 
 ## What "Working" Looks Like
-Paste the criteria and a real submission. Within about 15 seconds, see a complete scorecard where every evidence quote is verified to exist in the input. Unverifiable quotes are dropped or flagged, never shown as fact.
+Paste the criteria and a real submission. Within about 30 seconds, see a complete scorecard where every evidence quote is verified to exist in the input. Unverifiable quotes are dropped or flagged, never shown as fact.
 The "oh, that's cool" beat, the "red pen on your own words": paste a real submission and red underlines appear on the actual sentences. A circled "2" sits next to Impact, with a margin note pointing at the exact line that lost the point. This is the core product, not decoration.
 
 ## The POC Boundary

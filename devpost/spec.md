@@ -38,7 +38,7 @@ PRD ref: `prd.md > The Core Journey`.
    - The server returns marks (with positions) and states, but never the raw model quotes.
 5. **Results (view `results`).** `ResultsScreen` shows the paper at left (`PaperPage` and `segments.ts`), one card per criterion at right, the order note, and the Stage One checklist.
 6. **Review again.** The view goes back to `input`. The criteria, the text and the Stage One ticks are all still in the page state.
-7. **If the free API is busy (HTTP 429):** the view becomes `error` with "The free API is busy. Wait a minute and try again." The inputs are preserved. There is no automatic retry.
+7. **If the free API is busy (HTTP 429 or 503):** `llm.ts` has already tried the next model in the fallback list, once each, with no delay (see LLM client). Only when every model in the list has failed does the view become `error` with "The free API is busy. Wait a minute and try again." The inputs are preserved. There is no other retry.
 
 ## Stack
 
@@ -55,18 +55,18 @@ PRD ref: `prd.md > The Core Journey`.
 - **Framework** is the learner's preference (Next.js App Router + TypeScript + Tailwind, a single app). API routes keep the key server-side with no extra process.
 - **SDK.** `@google/genai` is the current official SDK; the older `@google/generative-ai` is deprecated and must not be used. Its README says Node 20+ (Node 22+ from SDK 3.0.0) and recommends pinning below 3.0.0. We pin the 2.x line (the GitHub releases page showed 2.30.0 as latest on 2026-10-14; I could not confirm on npm, which blocked the request).
 - **Models** (read from Google's pricing and models pages on 2026-10-16; both pages are updated often, so recheck before recording):
-  - Review: `gemini-3.8-flash`. It is listed as "Stable" and "Free of charge" for input and output on the free tier.
+  - Review: `gemini-3.8-flash`. It is listed as "Stable" and "Free of charge" for input and output on the free tier. **Fallback chain, in order: `gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-3.1-flash-lite`**, one attempt each (see LLM client).
   - Criteria parsing: `gemini-3.5-flash-lite`. Also "Stable" and "Free of charge". Splitting messy text into a list is easy, so the fast, light model is enough.
-  - Fallbacks if either is withdrawn or rate-limited: `gemini-3.6-flash` (Flash) and `gemini-3.1-flash-lite` (Flash-Lite) were also listed as free. Both model IDs are constants at the top of `llm.ts`.
+  - Criteria parsing falls back once, to `gemini-3.1-flash-lite` (the same Flash-Lite already in the review chain). All model IDs are constants at the top of `llm.ts`. The fallback IDs were listed as free on the pricing page on 2026-10-16.
 - **Free-tier facts that shape the design:**
   - The pricing page says free-tier content is "used to improve our products" and paid-tier content is not. This is why the Input screen carries the notice "Uses a free AI tier. Don't paste anything private."
   - Google does not publish numeric free-tier limits (requests per minute, per day, tokens per minute) on its rate-limits page. They vary by model and are shown per project in AI Studio (https://aistudio.google.com/rate-limit). Check them there before recording. Limits are per project, not per key, and daily limits reset at midnight Pacific time.
-  - Exceeding a limit returns an error. The rate-limits page names `429 RESOURCE_EXHAUSTED` for spend-based limits; I treat any HTTP 429 as "busy".
+  - Exceeding a limit returns an error. The rate-limits page names `429 RESOURCE_EXHAUSTED` for spend-based limits. The build spike also saw **503 `UNAVAILABLE` ("high demand")** from two Flash models. Both 429 and 503 count as "busy" and trigger the fallback chain.
 - **Structured output.** Gemini's native JSON-schema mode (`responseMimeType: "application/json"` plus a JSON schema), with Zod validation and one retry on top. Details in the Schema component.
 - **Temperature.** Start at the default (1.0): the code does not set `temperature`. Your recollection is that Google's Gemini 3 guidance recommends the default and warns that lower values can cause looping. I couldn't confirm that in the Google pages I read (one third-party guide says the same), so it is treated as your decision and the first experiment decides it. If `scripts/consistency.ts` shows a score spread above 1 on a fixture, the experiment is to try a lower value (for example 0.2) through a `TEMPERATURE` constant in `llm.ts` and compare. The result goes in the Experiment Log below either way.
 - **Thinking.** Gemini 3 Flash models think by default and take `thinkingConfig.thinkingLevel` (`MINIMAL`, `LOW`, `MEDIUM`, `HIGH`).
   - Criteria parsing: the lowest level available for that model, `MINIMAL`.
-  - Review: `LOW` or `MEDIUM`, whichever keeps a review under about 15 seconds. Start at `LOW`, time a real review, and move to `MEDIUM` only if it stays under about 15 seconds. The choice and the timing go in the Experiment Log.
+  - Review: `LOW` or `MEDIUM`, whichever keeps a review under about 30 seconds. Start at `LOW`, time a real review, and move to `MEDIUM` only if it stays under about 30 seconds. The choice and the timing go in the Experiment Log. The level must be accepted by whichever model in the fallback chain answers; if a model rejects it (HTTP 400), drop the setting for that model.
   - I have not confirmed that every model ID above accepts every level; if a call is rejected, drop to the next level the model accepts or remove the setting for that model.
 - **Mock mode** (`LLM_MOCK=1`): no extra dependency. The check lives in `llm.ts`, the only file that talks to the API.
 - **Unverified, to check early in the build** (each is the first thing to try with a real key):
@@ -106,7 +106,7 @@ Implementable details I derived (proposals, easy to change):
 - **Marks:** underlines are a red wavy or hand-drawn style `text-decoration`. Circled scores are an SVG ellipse, solid for scored criteria and dashed for not-addressed. The no-evidence caret is a red `^`.
 - **Layout:** generous margins. A paper page on the left with a margin column for numbered notes, and cards on the right. On narrow screens, stack the cards under the paper.
 - **Copy tone:** blunt, specific, never cruel. For example, "Judges can't credit what you don't say."
-- **"Marking your paper…"** is a handwritten caption on the paper itself, over the user's own text, with no spinner on a blank page.
+- **"Marking your paper…"** is a handwritten caption on the paper itself, over the user's own text, with no spinner on a blank page. Because a review can take up to about 30 seconds, it has to be good to sit through: a red pen line slowly sweeps down the user's own text, and a handwritten status line changes every few seconds ("Reading your description…", "Finding the sentences a judge would underline…", "Checking every quote against your text…"). These lines are honest: they describe what the pipeline does, with no fake percentage. After about 20 seconds it adds "Still marking. The free API can be slow." The sweep respects `prefers-reduced-motion`.
 - **Free-tier notice:** one small line of grey handwriting-or-serif text near the button: "Uses a free AI tier. Don't paste anything private." It must be readable but not look like a warning banner.
 
 ## Components
@@ -126,7 +126,7 @@ Shows the parsed criteria as editable chips (name + one-line description). The u
 PRD ref: `prd.md > Criteria Setup`.
 
 ### Results screen (`ResultsScreen.tsx`)
-Lays out the paper (left), the cards (right), the order note and the Stage One checklist. Cards are ordered lowest score first, ties broken by the order Design → Impact → Innovation → Presentation (the criterion's position in the list). The note says so in small print. No total or average.
+Lays out the paper (left), the cards (right), the order note, a small grey line "Marked by <model>" (from `meta.model`) and the Stage One checklist. Cards are ordered lowest score first, ties broken by the order Design → Impact → Innovation → Presentation (the criterion's position in the list). The note says so in small print. No total or average.
 PRD ref: `prd.md > Results screen`, `prd.md > The Scorecard`.
 
 ### Paper page (`PaperPage.tsx`)
@@ -145,7 +145,7 @@ Four checkboxes (public repo, open-source license visible, planning docs present
 PRD ref: `prd.md > Stage One Checklist`.
 
 ### Marking state (`MarkingState.tsx`)
-Shows the user's text on the paper with "Marking your paper…" in handwriting.
+Shows the user's text on the paper with "Marking your paper…" in handwriting, a slow red sweep and rotating honest status lines, plus the "Still marking" line after about 20 seconds (see Look and Feel).
 PRD ref: `prd.md > States and Boundaries` (Loading).
 
 ### Schema (`src/lib/schema.ts`, `src/lib/geminiSchema.ts`)
@@ -156,7 +156,7 @@ Zod schemas and types for both API payloads, plus the JSON schemas sent to Gemin
   flags[]    { type: "injection", quote }
   ```
 - Deviation from your first sketch: the model's score is never null. A null score is derived in code when a criterion is `unverifiable`, so the model can't use "null" as an easy way out.
-- `ReviewResponse` (what the server returns to the browser): per criterion `{ name, state, score | null, verdict, fix, marks[] { source, start, end, text }, droppedCount }`, plus `flags[] { source, start, end }`.
+- `ReviewResponse` (what the server returns to the browser): per criterion `{ name, state, score | null, verdict, fix, marks[] { source, start, end, text }, droppedCount }`, plus `flags[] { source, start, end }` and `meta { model, mock }`, where `model` is the model ID that answered (or `"mock"`).
 - **Two schemas, one contract.** Zod is the source of truth and validates every reply. The Gemini JSON schema is a hand-written copy of the parts Gemini can express (`geminiSchema.ts`), because Google's structured-output page documents only a subset of JSON Schema and I'd rather not depend on an automatic conversion. A test checks that the mock fixture passes Zod and has the shape the Gemini schema describes.
 - **What the Gemini schema can carry** (all listed as supported on Google's structured-output page): `type` (object, array, string, integer), `properties`, `required`, `additionalProperties`, `enum`, `items`, `minItems` / `maxItems`, and `minimum` / `maximum` on integers. So it states: the field names and order, `source` as an enum of `description` and `transcript`, `flags[].type` as an enum with the single value `injection` (I avoid `const`, which the page doesn't list), `score` as an integer from 1 to 5, and `evidence` with at most 2 items.
 - **What the Gemini schema can't express, so Zod enforces it** (and a failure triggers the one retry with the Zod error text):
@@ -195,8 +195,10 @@ See Prompting and Scoring Consistency below.
 The only file that imports the Gemini SDK.
 - Creates one `GoogleGenAI` client with `apiKey: process.env.GEMINI_API_KEY`.
 - Calls the model with `systemInstruction`, `thinkingConfig`, no `temperature` (default), `responseMimeType: "application/json"` and the JSON schema, wrapped in a timeout of about 45 seconds.
-- Parses `response.text` as JSON, validates it with Zod, and if validation fails makes exactly one more call with the Zod error text appended. That is the only retry. A 429, a timeout or any other API error is never retried automatically.
-- Maps failures to the error codes below. An SDK `ApiError` carries a `status`; a 429 becomes `rate_limited`. An empty or blocked response becomes `refused`.
+- Parses `response.text` as JSON, validates it with Zod, and if validation fails makes exactly one more call, to the same model, with the Zod error text appended. That is the only retry on bad output. A timeout or any other API error is never retried.
+- **Model fallback.** The review calls the chain `gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-3.1-flash-lite`; parsing calls `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite`. On HTTP 429 or 503 only, it moves to the next model immediately: one attempt per model, no delay, no loop, no second pass. If every model fails, it returns `rate_limited`. Other errors (timeout, 400, empty or blocked) do not trigger the fallback. Each attempt is logged with its model and status.
+- **Which model answered.** `llm.ts` returns the model ID that produced the accepted output, and the route puts it in `meta.model` of the response (`"mock"` in mock mode).
+- Maps failures to the error codes below. An SDK `ApiError` carries a `status`; a 429 or 503 (after the whole chain failed) becomes `rate_limited`. An `AbortError` from the timeout becomes `timeout`. An empty or blocked response becomes `refused`.
 - Logs `attempts`, `droppedCount`, elapsed time and token usage (if the SDK returns it) to the server console for each review.
 - When `LLM_MOCK=1`, returns the matching fixture from `fixtures/` instead of calling Gemini and logs "MOCK MODE". The mock replaces only the model call: the output still goes through Zod and verification.
 PRD ref: `prd.md > States and Boundaries` (error or timeout).
@@ -219,8 +221,8 @@ With `LLM_MOCK=1`, `/api/parse-criteria` and `/api/review` return fixture JSON i
 PRD ref: `prd.md > Evidence Verification and the Red Pen`.
 
 ### Routes (`src/app/api/*/route.ts`)
-- `POST /api/parse-criteria`: body `{ text }`; response `{ criteria: [{ name, description }] }`. Uses `gemini-3.5-flash-lite`. 1 to 8 criteria. Skipped for the preset.
-- `POST /api/review`: body `{ criteria, description, transcript? }`; response `ReviewResponse`. Uses `gemini-3.8-flash`. Enforces the input caps.
+- `POST /api/parse-criteria`: body `{ text }`; response `{ criteria: [{ name, description }] }`. Uses `gemini-3.5-flash-lite`, falling back once to `gemini-3.1-flash-lite`. 1 to 8 criteria. Skipped for the preset.
+- `POST /api/review`: body `{ criteria, description, transcript? }`; response `ReviewResponse` (including `meta.model`). Uses the review fallback chain. Enforces the input caps.
 - Both return `{ error: "timeout" | "rate_limited" | "bad_output" | "refused" | "too_long" | "server" }` with a matching status on failure. The browser shows "The free API is busy. Wait a minute and try again." for `rate_limited`, and a generic retry message for the others.
 
 ## Prompting and Scoring Consistency
@@ -316,7 +318,7 @@ Note for the build: `create-next-app` writes its own `.gitignore`. Merge it with
 
 ## Important Failure Modes
 
-- **Free API busy (HTTP 429)** → "The free API is busy. Wait a minute and try again." Inputs are preserved. No automatic retry, so a busy period doesn't burn more quota.
+- **Free API busy (HTTP 429 or 503)** → the next model in the fallback chain is tried once, with no delay. Only if all of them fail: "The free API is busy. Wait a minute and try again." Inputs are preserved. No other retry, so a busy period doesn't burn more quota.
 - **Model returns invalid or off-contract JSON** (wrong names, a no-evidence criterion with a score above 2) → Zod fails, one retry with the error included. If it fails again, the user sees "Couldn't mark your paper, please try again" and their inputs are preserved.
 - **Model fabricates or paraphrases a quote** → `verify.ts` drops it. The card keeps its score if another quote survives, with the grey removal note. If all were dropped, "Couldn't verify, re-run" with no score. If this happens a lot, the server log shows the drop rate.
 - **Model invents an injection flag** → the flag's quote is verified like evidence and silently dropped if it isn't in the text.
@@ -343,8 +345,8 @@ Note for the build: `create-next-app` writes its own `.gitignore`. Merge it with
 - The official Google Gen AI SDK; the best free Flash model for the review and a free Flash-Lite model for criteria parsing.
 - Gemini's native structured output with Zod validation and one retry on top; Zod enforces what the Gemini schema can't express.
 - Start at the default temperature (1.0). The rubric, schema order and quote verification carry consistency. If `scripts/consistency.ts` shows a spread above 1, try a lower temperature as the experiment and record the result in this spec either way.
-- Thinking level: the lowest available for criteria parsing, `LOW` or `MEDIUM` for the review, whichever keeps a review under about 15 seconds.
-- HTTP 429 shows "The free API is busy. Wait a minute and try again." with inputs preserved and no automatic retry loop.
+- Thinking level: the lowest available for criteria parsing, `LOW` or `MEDIUM` for the review, whichever keeps a review under about 30 seconds.
+- HTTP 429 or 503 first falls back once through the model list (review: `gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-3.1-flash-lite`, one attempt each, no delays or loops). The busy message "The free API is busy. Wait a minute and try again." shows only if all of them fail, with inputs preserved. The response records which model answered (`meta.model`) and the results screen shows it in small grey text ("Marked by gemini-3.1-flash-lite"). Latency target relaxed to about 30 seconds, with a loading state worth waiting through. (Decided by the learner on 2026-10-16 after the build spike saw 503s.)
 - `scripts/consistency.ts` spaces its calls at least 5 seconds apart.
 - The Input screen notice: "Uses a free AI tier. Don't paste anything private."
 - Two routes, `/api/parse-criteria` and `/api/review`; the normalization rules and offset-preserving matching, the source-correction rule, `droppedCount`, the three states, and the test list.
@@ -381,7 +383,8 @@ To be filled in during the build, with real numbers. Record the result either wa
 |---|---|---|---|
 | Score consistency at default temperature | default (1.0), 3 runs per fixture | _not yet run_ | _spread per criterion, and whether it is at most 1_ |
 | Lower temperature, only if the spread above is greater than 1 | e.g. 0.2, 3 runs per fixture | _not yet run_ | _spread, any empty, looping or schema-failing output_ |
-| Review thinking level and latency | `LOW`, then `MEDIUM` | _not yet run_ | _seconds per review; keep the highest level under about 15 s_ |
+| Review thinking level and latency | `LOW`, then `MEDIUM` | _not yet run_ | _seconds per review, and which model answered; keep the highest level under about 30 s_ |
+| Model fallback on 503 or 429 | chain `gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-3.1-flash-lite`, one attempt each | _not yet run for real; unit-tested with a stubbed client in slice 4_ | _how often each model answered; whether the busy message ever shows_ |
 | Criteria parsing thinking level | `MINIMAL` | _not yet run_ | _accepted by the model, or fallback_ |
 | Quote drop rate | server log `droppedCount` over the fixture runs | _not yet run_ | _share of quotes dropped_ |
 
@@ -397,4 +400,4 @@ Partly settled. `gemini-3.8-flash` and `gemini-3.6-flash` returned HTTP 503 `UNA
 | Thinking level, parsing model | `gemini-3.5-flash-lite` accepts `MINIMAL` and `LOW`. | OK with both. Latency for a one-criterion fixture: 7.9 s (`LOW`), 17.7 s (`MINIMAL`), so latency is noisy and not driven by the level. |
 | Thinking level, review model | **Unconfirmed.** `LOW` and `MEDIUM` both returned 503 on both Flash models, so no acceptance or rejection was observed. | 503 on every try. |
 
-New finding for slice 4: the free tier can answer **503 UNAVAILABLE**, not only 429. Plan: treat 503 like 429 for the user ("The free API is busy. Wait a minute and try again.") with no automatic retry, and log the status. Before slice 4, rerun the spike (`REVIEW_MODEL=<id> node scripts/spike-gemini.mjs .env.local`) to settle key order and thinking level on the review model, and try the `gemini-3.1-flash-lite` fallback if the Flash models are still unavailable.
+New finding, and the decision it led to (learner, 2026-10-16): the free tier can answer **503 UNAVAILABLE**, not only 429. Instead of only showing the busy message, the review falls back once through `gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-3.1-flash-lite` (one attempt each, no delays or loops) and shows the busy message only if all fail. The model that answered is returned as `meta.model` and shown in small grey text on the results. The latency target is relaxed from about 15 s to about 30 s. Before slice 4, rerun the spike (`REVIEW_MODEL=<id> node scripts/spike-gemini.mjs .env.local`) to settle key order and thinking level on the review models, including `gemini-3.1-flash-lite`.

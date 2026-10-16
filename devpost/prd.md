@@ -20,7 +20,7 @@ Source: `scope.md > The Unique Kernel`, `scope.md > The Core Loop`, `scope.md > 
 6. The **Results screen** appears: their text on a paper page at left, underlined in red where evidence was verified, with numbered margin notes. At right is one card per criterion, with a hand-circled score, a verdict, the evidence and "Fix this first: …". Under the cards is the Stage One checklist.
 7. They read the marks, tick the Stage One checklist themselves, press **Review again** to return to their inputs, edit their text and re-run.
 
-Success: within about 15 seconds the user sees a complete scorecard, and every quote shown as evidence exists in their input (`scope.md > What "Working" Looks Like`).
+Success: within about 30 seconds the user sees a complete scorecard, and every quote shown as evidence exists in their input (`scope.md > What "Working" Looks Like`).
 
 ## Screens and Layout
 
@@ -36,7 +36,7 @@ Two screens.
 ### Results screen ("red-pen review")
 - **Left: the paper page.** The user's text on a paper page, with two tabs: "Description" and "Video transcript". The Video transcript tab appears only if a transcript was given. Each tab label shows its mark count (for example, "Video transcript · 3 marks"). Verified evidence quotes are underlined in red ink. Numbered margin notes link each mark to a criterion. Margin numbers are consistent across both tabs.
 - **Right: one card per criterion.** Each card has a hand-circled score from 1 to 5, a one-line verdict, the evidence, and "Fix this first: …".
-- **Under the cards:** a small note giving the tie-break order, then the Stage One checklist.
+- **Under the cards:** a small note giving the tie-break order, a small grey line saying which AI model marked the paper ("Marked by gemini-3.1-flash-lite"), then the Stage One checklist.
 - **"Review again"** returns to the Input screen with the inputs kept, for editing and re-running.
 
 ## Look and Feel
@@ -135,8 +135,8 @@ Under the cards, four items the user ticks themselves. The AI does not check or 
 - **First use** — the Input screen with empty boxes, the preset selected or selectable, and the transcript box collapsed.
 - **Short input** — a warning under 300 characters in the submission box.
 - **Empty or very short input** — blocked with a friendly message. The review does not run. (The exact threshold is an assumption; see Open Questions.)
-- **Loading** — "Marking your paper…" shown on the paper itself, not a spinner on a blank page.
-- **LLM error or timeout** — a clear retry message. The inputs are preserved.
+- **Loading** — "Marking your paper…" shown on the paper itself, not a spinner on a blank page. A review can take up to about 30 seconds, so the loading state shows honest progress lines and a slow red-pen sweep over the user's text.
+- **LLM error or timeout** — a clear retry message. The inputs are preserved. If the AI service is busy, the app quietly tries the next model in a short list first, and shows the busy message only if all of them fail.
 - **Nothing persists beyond the session** — no accounts and no saved history (`scope.md > Explicitly Cut`). Within a session, Review again keeps the inputs and the Stage One ticks. Closing the app loses them.
 - **No transcript** — the paper shows only the Description page, with no tab for the transcript.
 
