@@ -19,7 +19,7 @@ Build mode: fast (confirmed by the learner at the start of the build session)
   Learner check: Read the four answers in the Experiment Log and say if any of them changes what you expected.
   Commit: `Spike: confirm Gemini request shape, key order, timeout and thinking level`
 
-- [ ] **1. Mock mode and the results screen from fixture JSON**
+- [x] **1. Mock mode and the results screen from fixture JSON**
   Becomes usable: `npm run dev` with `LLM_MOCK=1` shows the red-pen results screen built from the fixtures: paper with underlines and margin numbers, a dashed circle and caret for a not-addressed criterion, the grey removal note, and tabs with mark counts.
   Why now: Scaffold, the unique kernel (evidence on the paper) and every card state land at once, against fixtures, with no API quota used. The pure functions that draw the marks (`normalize`, `verify`, `segments`, `review`) are written here because the screen needs them.
   PRD ref: `prd.md > Evidence Verification and the Red Pen`, `prd.md > Criteria With No Evidence`, `prd.md > Results screen`, `prd.md > Look and Feel`
@@ -102,4 +102,6 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
 
 ## Revisions
 - Spike partly settled: `gemini-3.8-flash` and `gemini-3.6-flash` returned 503 UNAVAILABLE on every try, so key order and thinking level on the review model are unconfirmed (request shape, timeout option and Flash-Lite behaviour are settled). Rerun the spike before slice 4. Slice 4 also maps 503 to the same "free API is busy" message as 429, with no auto-retry. Details in `spec.md > Experiment Log`.
+- Mock switch lives in `src/lib/mock.ts`, not inside `llm.ts` — slice 1 needs mock mode before `llm.ts` exists, and `llm.ts` will call `mock.ts` in slice 4, so it stays the only file that talks to the API. Updated the `spec.md` file tree.
+- The scaffold (`create-next-app` on Next 16.4.2) turns on Cache Components, which rejects `export const dynamic`; the slice-1 preview page reads `LLM_MOCK` per request with `await connection()` inside `<Suspense>`. Also moved `@types/node` to `^22` (Node 22 here) because Vitest 5 requires it.
 - 503/429 fallback chain, model shown on results, and relaxed latency target (learner decision, 2026-10-16): the review falls back once each through `gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-3.1-flash-lite` on 503 or 429, with no delays or loops, and shows the busy message only if all fail. The answering model is returned as `meta.model` and shown on the results ("Marked by …"). The latency target moves from about 15 s to about 30 s and the loading state gets more care. Updated `spec.md`, `prd.md`, `scope.md` and slices 2 and 4 to match. The review-model spike rerun happens before slice 4.

@@ -279,7 +279,8 @@ judge-mirror/
 │       ├── presets.ts            # "Build With AI: Basics" criteria, exact wording
 │       ├── limits.ts             # min/max lengths, caps
 │       ├── prompts.ts            # system instruction, rubric, delimiter builder
-│       ├── llm.ts                # Gemini client, call + Zod retry-once, LLM_MOCK switch
+│       ├── llm.ts                # Gemini client, model fallback, call + Zod retry-once; asks mock.ts first
+│       ├── mock.ts               # LLM_MOCK switch and fixture loading (server-only)
 │       ├── review.ts             # pure pipeline: Zod rules -> verify -> ReviewResponse
 │       ├── normalize.ts          # normalization with offset map
 │       ├── verify.ts             # verifyQuote, verifyCriterion, deriveState

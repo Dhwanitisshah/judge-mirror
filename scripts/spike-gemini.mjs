@@ -14,7 +14,6 @@ if (!KEY) throw new Error("GEMINI_API_KEY missing");
 console.log("LLM_MOCK in .env.local =", JSON.stringify(env.LLM_MOCK), "-> overridden: this script never reads it");
 
 const REVIEW = process.env.REVIEW_MODEL || "gemini-3.8-flash";
-const PARSE = "gemini-3.5-flash-lite";
 const ai = new GoogleGenAI({ apiKey: KEY });
 const scrub = (s) => String(s).split(KEY).join("<key>").slice(0, 300);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -78,7 +77,6 @@ async function retry(label, model, config, tries = 4) {
   }
   return { ok: false, status: 503 };
 }
-const mode = process.argv[3] || "all";
 const low = { thinkingConfig: { thinkingLevel: "LOW" } };
 const withOrdering = structuredClone(schema);
 withOrdering.properties.criteria.items.propertyOrdering = ["name", "evidence", "verdict", "score", "fix"];

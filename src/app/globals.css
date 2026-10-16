@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* Colour tokens (spec.md > Look and Feel): an exam paper marked in red pen. */
+:root {
+  --desk: #ebe5d6;
+  --paper: #faf7f0;
+  --ink: #1f1b16;
+  --redpen: #c0281f;
+  --grey-note: #756f64;
+  --rule: #d9d2c0;
+}
+
+@theme inline {
+  --color-desk: var(--desk);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-redpen: var(--redpen);
+  --color-grey-note: var(--grey-note);
+  --color-rule: var(--rule);
+  /* If a font fails to load, a system serif and a system handwriting face are used. */
+  --font-serif: var(--font-lora), Georgia, "Times New Roman", serif;
+  --font-hand: var(--font-caveat), "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;
+}
+
+body {
+  background: var(--desk);
+  color: var(--ink);
+  font-family: var(--font-lora), Georgia, "Times New Roman", serif;
+}
+
+/* ---- The red pen on the paper ---- */
+
+/* One criterion: a plain red underline. */
+.mark {
+  text-decoration-line: underline;
+  text-decoration-style: solid;
+  text-decoration-color: var(--redpen);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+/* Two or more criteria overlap here: a double underline, and every number shows. */
+.mark-overlap {
+  text-decoration-line: underline;
+  text-decoration-style: double;
+  text-decoration-color: var(--redpen);
+  text-decoration-thickness: 3px;
+  text-underline-offset: 4px;
+}
+
+/* An instruction aimed at the reviewer, circled by hand. */
+.flag-circle {
+  border: 2px solid var(--redpen);
+  border-radius: 48% 52% 50% 50% / 62% 58% 42% 38%;
+  padding: 0.05em 0.35em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.margin-num {
+  font-family: var(--font-hand);
+  color: var(--redpen);
+  font-weight: 700;
+  font-size: 1.15em;
+  line-height: 0;
+  vertical-align: super;
+  margin-left: 1px;
+}
+
+/* ---- "Marking your paper…" ---- */
+
+@keyframes pen-sweep {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(var(--sweep-distance, 320px));
+    opacity: 0;
+  }
+}
+
+.pen-sweep {
+  animation: pen-sweep 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pen-sweep {
+    animation: none;
+    opacity: 0;
+  }
+}
