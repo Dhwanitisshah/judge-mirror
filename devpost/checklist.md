@@ -9,7 +9,7 @@ Build mode: fast (confirmed by the learner at the start of the build session)
 
 ## Slices
 
-- [ ] **0. Gemini spike: one real call settles the four early checks**
+- [x] **0. Gemini spike: one real call settles the four early checks**
   Becomes usable: A throwaway script that makes one real Gemini call with a tiny fixture and prints what actually works. The answers go in the Experiment Log.
   Why now: Risk first. Request shape, key order, timeout and thinking level decide how `llm.ts` is written in slice 4, and spec.md lists them as unverified. `LLM_MOCK` is overridden for the spike only.
   PRD ref: `prd.md > States and Boundaries` (error or timeout)
@@ -101,3 +101,4 @@ Reflection: [offered/answered/declined/already covered — personal answer belon
 Activity mode: [live app and editor, explicit static fallback, focused alternative, prior practice, or recap]
 
 ## Revisions
+- Spike partly settled: `gemini-3.8-flash` and `gemini-3.6-flash` returned 503 UNAVAILABLE on every try, so key order and thinking level on the review model are unconfirmed (request shape, timeout option and Flash-Lite behaviour are settled). Rerun the spike before slice 4. Slice 4 also maps 503 to the same "free API is busy" message as 429, with no auto-retry. Details in `spec.md > Experiment Log`.

@@ -384,3 +384,17 @@ To be filled in during the build, with real numbers. Record the result either wa
 | Review thinking level and latency | `LOW`, then `MEDIUM` | _not yet run_ | _seconds per review; keep the highest level under about 15 s_ |
 | Criteria parsing thinking level | `MINIMAL` | _not yet run_ | _accepted by the model, or fallback_ |
 | Quote drop rate | server log `droppedCount` over the fixture runs | _not yet run_ | _share of quotes dropped_ |
+
+### Spike results (2026-10-16, `scripts/spike-gemini.mjs`, `@google/genai` 2.30.0, `LLM_MOCK` ignored by the script)
+
+Partly settled. `gemini-3.8-flash` and `gemini-3.6-flash` returned HTTP 503 `UNAVAILABLE` ("This model is currently experiencing high demand") on every attempt (about 12 and 12 calls, 12 s apart), so nothing could be confirmed on the review model. `gemini-3.5-flash-lite` answered.
+
+| Early check | Result | Evidence |
+|---|---|---|
+| Request shape | `ai.models.generateContent({ model, contents, config: { responseMimeType: "application/json", responseJsonSchema, systemInstruction, thinkingConfig } })` works; `response.text` is the JSON. The `interactions.create` shape is not needed. | OK on `gemini-3.5-flash-lite`; not yet seen on the review model (503). |
+| Key order | Output keys follow the schema's declared order (`name > evidence > verdict > score > fix`, not alphabetical) with no `propertyOrdering`. | 2 of 2 successful calls on Flash-Lite. **Not yet confirmed on the review model.** |
+| Timeout | `config.httpOptions.timeout` (ms) and `config.abortSignal` both work; each throws `AbortError` ("This operation was aborted") with no `status`. The `Promise.race` fallback is not needed, but `llm.ts` must map `AbortError` to `timeout`. | `timeout: 1` and `AbortSignal.timeout(1)` both aborted in 2 to 5 ms. |
+| Thinking level, parsing model | `gemini-3.5-flash-lite` accepts `MINIMAL` and `LOW`. | OK with both. Latency for a one-criterion fixture: 7.9 s (`LOW`), 17.7 s (`MINIMAL`), so latency is noisy and not driven by the level. |
+| Thinking level, review model | **Unconfirmed.** `LOW` and `MEDIUM` both returned 503 on both Flash models, so no acceptance or rejection was observed. | 503 on every try. |
+
+New finding for slice 4: the free tier can answer **503 UNAVAILABLE**, not only 429. Plan: treat 503 like 429 for the user ("The free API is busy. Wait a minute and try again.") with no automatic retry, and log the status. Before slice 4, rerun the spike (`REVIEW_MODEL=<id> node scripts/spike-gemini.mjs .env.local`) to settle key order and thinking level on the review model, and try the `gemini-3.1-flash-lite` fallback if the Flash models are still unavailable.
