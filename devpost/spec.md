@@ -222,6 +222,7 @@ PRD ref: `prd.md > Evidence Verification and the Red Pen`.
 
 ### Routes (`src/app/api/*/route.ts`)
 - `POST /api/parse-criteria`: body `{ text }`; response `{ criteria: [{ name, description }] }`. Uses `gemini-3.5-flash-lite`, falling back once to `gemini-3.1-flash-lite`. 1 to 8 criteria. Skipped for the preset.
+- `GET /api/sample`: mock mode only (404 otherwise). Returns the bundled sample submission and transcript so the Input screen can offer a one-click paste.
 - `POST /api/review`: body `{ criteria, description, transcript? }`; response `ReviewResponse` (including `meta.model`). Uses the review fallback chain. Enforces the input caps.
 - Both return `{ error: "timeout" | "rate_limited" | "bad_output" | "refused" | "too_long" | "server" }` with a matching status on failure. The browser shows "The free API is busy. Wait a minute and try again." for `rate_limited`, and a generic retry message for the others.
 
@@ -274,6 +275,8 @@ judge-mirror/
 │   │   ├── ScoreCircle.tsx       # solid or dashed circle
 │   │   └── StageOneChecklist.tsx
 │   └── lib/
+│       ├── state.ts              # pure reducer, input validation, error messages
+│       ├── state.test.ts
 │       ├── schema.ts             # Zod schemas and types
 │       ├── geminiSchema.ts       # hand-written JSON schemas sent to Gemini
 │       ├── presets.ts            # "Build With AI: Basics" criteria, exact wording
@@ -300,7 +303,7 @@ judge-mirror/
 ├── LICENSE                       # MIT
 ├── README.md                     # setup steps, free-tier privacy warning
 ├── package.json
-└── vitest.config.ts
+└── vitest.config.mts
 ```
 
 Note for the build: `create-next-app` writes its own `.gitignore`. Merge it with the existing one rather than replacing it. Next's default ignores `.env*`, so the merged file needs `!.env.example` and must keep `/devpost/learner-profile.md`.
