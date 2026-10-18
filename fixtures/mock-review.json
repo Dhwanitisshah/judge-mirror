@@ -12,9 +12,9 @@
           "source": "transcript"
         }
       ],
-      "verdict": "A complete loop from photo to dinner, with a confirm step.",
+      "verdict": "A real loop from photo to dinner, and you ask the user to confirm the ingredients. Good.",
       "score": 4,
-      "fix": "What happens when the model misreads the photo: can the user fix a single ingredient by hand?"
+      "fix": "What happens when the model misreads the photo? Can the user fix a single ingredient by hand?"
     },
     {
       "name": "Potential Impact",
@@ -28,9 +28,9 @@
           "source": "description"
         }
       ],
-      "verdict": "A specific audience and a tested claim, but the sample is small.",
+      "verdict": "A real audience and a real test, but twelve students is a small room to build a claim on.",
       "score": 3,
-      "fix": "What did the three students who didn't cook more need from the photo step?"
+      "fix": "The three who didn't cook more: what did they need that the photo step didn't give them?"
     },
     {
       "name": "Innovation/Idea",
@@ -44,16 +44,16 @@
           "source": "description"
         }
       ],
-      "verdict": "Claims novelty in the matching algorithm.",
+      "verdict": "You claim something new but the claim stands alone.",
       "score": 4,
-      "fix": "Name one existing recipe app and say what PantryPal does that it does not."
+      "fix": "Name one existing recipe app and say what PantryPal does that it doesn't."
     },
     {
       "name": "Presentation",
       "evidence": [],
-      "verdict": "Nothing in your text shows the project working end to end.",
+      "verdict": "Nothing in your text shows the project working from start to finish.",
       "score": 2,
-      "fix": "Which moment in your video shows a recipe going from photo to cooked dinner, and where do you say who it is for?"
+      "fix": "Which moment in your video takes a recipe from photo to cooked dinner, and where do you say who it's for?"
     }
   ],
   "flags": [

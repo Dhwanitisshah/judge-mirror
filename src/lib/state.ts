@@ -118,20 +118,20 @@ export function activeCriteria(state: AppState): Criterion[] | null {
 /** A friendly message when the input can't be reviewed, or null when it can. */
 export function validateInput(state: AppState): string | null {
   if (state.criteriaMode === "custom") {
-    if (state.criteriaText.trim().length === 0) return "Paste your judging criteria first.";
+    if (state.criteriaText.trim().length === 0) return "Paste the judging criteria first. I can't mark against a rubric I haven't seen.";
     if (state.criteriaText.length > MAX_CRITERIA_TEXT_CHARS) {
-      return `Your criteria are over ${MAX_CRITERIA_TEXT_CHARS.toLocaleString("en-US")} characters. Shorten them and try again.`;
+      return `Your criteria run past ${MAX_CRITERIA_TEXT_CHARS.toLocaleString("en-US")} characters. Cut them down to the rubric itself and try again.`;
     }
   }
   const length = state.description.trim().length;
   if (length < MIN_REVIEW_CHARS) {
-    return `That's too short to review. Paste at least ${MIN_REVIEW_CHARS} characters of your description.`;
+    return `That's not enough to mark. Paste at least ${MIN_REVIEW_CHARS} characters of your description.`;
   }
   if (state.description.length > MAX_DESCRIPTION_CHARS) {
-    return `Your description is over ${MAX_DESCRIPTION_CHARS.toLocaleString("en-US")} characters. Shorten it and try again.`;
+    return `Your description runs past ${MAX_DESCRIPTION_CHARS.toLocaleString("en-US")} characters. A judge won't read that much either, so tighten it and try again.`;
   }
   if (state.transcript.length > MAX_TRANSCRIPT_CHARS) {
-    return `Your transcript is over ${MAX_TRANSCRIPT_CHARS.toLocaleString("en-US")} characters. Shorten it and try again.`;
+    return `Your transcript runs past ${MAX_TRANSCRIPT_CHARS.toLocaleString("en-US")} characters. Trim it to what you actually say in the video and try again.`;
   }
   return null;
 }
@@ -150,10 +150,10 @@ export function errorMessage(code: string): string {
     case "rate_limited":
       return "The free API is busy. Wait a minute and try again.";
     case "timeout":
-      return "That took too long. Try again in a moment.";
+      return "That took too long and I had to put my pen down. Try again in a moment.";
     case "too_long":
-      return "Your text is too long for a review. Shorten it and try again.";
+      return "That's more than I can mark in one sitting. Trim it and try again.";
     default:
-      return "Couldn't mark your paper, please try again.";
+      return "I couldn't mark your paper this time. Try again.";
   }
 }

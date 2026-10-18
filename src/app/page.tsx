@@ -84,7 +84,7 @@ export default function Home() {
   return (
     <main className="mx-auto w-full max-w-7xl p-4 md:p-8">
       <header className="mb-8">
-        <h1 className="font-hand text-5xl font-bold text-redpen">Judge Mirror</h1>
+        <h1 className="text-4xl font-bold tracking-tight text-ink">Judge Mirror</h1>
         <p className="text-grey-note">See your submission the way a judge will read it, before the deadline.</p>
       </header>
 
@@ -123,8 +123,8 @@ export default function Home() {
 
       {state.view === "error" && (
         <section role="alert" className="mx-auto max-w-3xl space-y-4 rounded-sm border border-rule bg-paper p-6 shadow-md">
-          <p className="font-hand text-3xl text-redpen">{state.error}</p>
-          <p className="text-grey-note">Your text is still here.</p>
+          <p className="text-xl font-semibold text-redpen">{state.error}</p>
+          <p className="text-grey-note">Your text is safe. Nothing you typed has been lost.</p>
           <button
             type="button"
             onClick={() => dispatch({ type: "back_to_input" })}

@@ -3,6 +3,7 @@
 import type { Criterion } from "@/lib/schema";
 import { MAX_CRITERIA } from "@/lib/limits";
 import { chipsValid } from "@/lib/state";
+import { PenCircle } from "./PenCircle";
 
 const inputClass =
   "w-full rounded-sm border border-rule bg-paper px-2 py-1.5 focus:border-redpen focus:outline-none focus:ring-1 focus:ring-redpen";
@@ -27,7 +28,7 @@ export function CriteriaChips({
       <div>
         <h2 className="text-2xl font-semibold">Did I read your criteria correctly?</h2>
         <p className="mt-1 text-grey-note">
-          Marking against misread criteria wastes the whole review. Edit, remove or add, then confirm.
+          I won&apos;t mark a single line against a rubric I might have misread. Fix anything that&apos;s off, then confirm.
         </p>
       </div>
 
@@ -35,12 +36,9 @@ export function CriteriaChips({
         {chips.map((c, i) => (
           <li key={i} className="space-y-2 rounded-sm border border-rule bg-paper p-3 shadow-sm">
             <div className="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-redpen font-hand text-xl font-bold leading-none text-redpen"
-              >
+              <PenCircle seed={i * 5 + 2} className="h-8 w-8 font-hand text-xl font-bold leading-none" strokeWidth={2}>
                 {i + 1}
-              </span>
+              </PenCircle>
               <label className="sr-only" htmlFor={`chip-name-${i}`}>
                 Criterion {i + 1} name
               </label>
@@ -96,7 +94,7 @@ export function CriteriaChips({
         <button type="button" onClick={onBack} className="text-grey-note underline underline-offset-2 hover:text-redpen">
           Back to my text
         </button>
-        {!valid && <p className="text-sm text-grey-note">Every criterion needs a name and a description.</p>}
+        {!valid && <p className="text-sm text-grey-note">Every criterion needs a name and a description. I can&apos;t grade against a blank.</p>}
       </div>
     </div>
   );

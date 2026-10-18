@@ -104,8 +104,8 @@ export function InputScreen({
           {count > MAX_DESCRIPTION_CHARS && ` (the limit is ${MAX_DESCRIPTION_CHARS.toLocaleString("en-US")})`}
         </p>
         {showShortWarning && (
-          <p className="font-hand text-xl text-redpen">
-            Under {WARN_BELOW_CHARS} characters. A judge, and this review, will have very little to go on.
+          <p className="font-medium text-redpen">
+            Under {WARN_BELOW_CHARS} characters. A judge won&apos;t have much to go on, and neither will I.
           </p>
         )}
       </section>
@@ -138,7 +138,7 @@ export function InputScreen({
 
       <section className="space-y-3">
         {state.notice && (
-          <p role="alert" className="font-hand text-xl text-redpen">
+          <p role="alert" className="font-medium text-redpen">
             {state.notice}
           </p>
         )}

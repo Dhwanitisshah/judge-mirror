@@ -49,8 +49,8 @@ export function ResultsScreen({
         ))}
 
         <p className="text-sm text-grey-note">
-          Cards run lowest score first. Ties keep the order of your criteria list (for the preset: Design →
-          Impact → Innovation → Presentation). There is no total or average, because it would suggest more
+          Fix these in order, lowest score first. Ties go in the order you listed your criteria (for the preset:
+          Design → Impact → Innovation → Presentation). There is no total or average: it would suggest more
           precision than judging really has.
         </p>
         <p className="text-sm text-grey-note">{marker}</p>

@@ -54,9 +54,9 @@ describe("validateInput: the 50 and 300 character rules", () => {
   const withText = (description: string): AppState => ({ ...initialState, description });
 
   it("blocks a description under 50 characters", () => {
-    expect(validateInput(withText("x".repeat(49)))).toMatch(/too short/);
-    expect(validateInput(withText(""))).toMatch(/too short/);
-    expect(validateInput(withText("   " + "x".repeat(40) + "   "))).toMatch(/too short/);
+    expect(validateInput(withText("x".repeat(49)))).toMatch(/not enough to mark/);
+    expect(validateInput(withText(""))).toMatch(/not enough to mark/);
+    expect(validateInput(withText("   " + "x".repeat(40) + "   "))).toMatch(/not enough to mark/);
   });
 
   it("allows 50 characters, and under 300 is only a warning, not a block", () => {
@@ -65,8 +65,8 @@ describe("validateInput: the 50 and 300 character rules", () => {
   });
 
   it("blocks text over the caps", () => {
-    expect(validateInput(withText("x".repeat(15001)))).toMatch(/over 15,000/);
-    expect(validateInput({ ...withText(longText), transcript: "x".repeat(30001) })).toMatch(/over 30,000/);
+    expect(validateInput(withText("x".repeat(15001)))).toMatch(/past 15,000/);
+    expect(validateInput({ ...withText(longText), transcript: "x".repeat(30001) })).toMatch(/past 30,000/);
   });
 
   it("needs criteria text in Custom mode", () => {
