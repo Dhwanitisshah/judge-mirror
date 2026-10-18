@@ -39,7 +39,7 @@ Build mode: fast (confirmed by the learner at the start of the build session)
   Learner check: Choose the preset and run a review on the sample submission; then try Custom with pasted criteria and confirm the chips; tick two Stage One boxes, press Review again and confirm they and your text are still there. What did you notice, and what would you change?
   Commit: `Add input screen, criteria chips and Stage One checklist`
 
-- [ ] **3. Quote verification and unit tests**
+- [x] **3. Quote verification and unit tests**
   Becomes usable: `npm test` runs the full spec test list and passes; the verification rules, flags included, are proven on the pure functions.
   Why now: Verification is the learner's stated learning goal and the kernel. It is tested before any real model output touches it.
   PRD ref: `prd.md > Evidence Verification and the Red Pen`, `prd.md > Prompt Injection in the Submission`
@@ -81,7 +81,7 @@ Build mode: fast (confirmed by the learner at the start of the build session)
 
 ## Hands-on Checkpoints
 
-- [ ] Early usable behavior explored — after slice 2 (the whole journey runs in mock mode)
+- [x] Early usable behavior explored — after slice 2 (the whole journey runs in mock mode)
 - [ ] Final kick-the-tires exploration and feedback completed — one strong real Devpost submission and one deliberately weak one written by the learner; confirm the scores differ sensibly
 
 ## Final Review
@@ -107,3 +107,4 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
 - Slice 2 added `src/lib/state.ts` (the pure reducer, `validateInput`, `errorMessage`) with `state.test.ts`, a mock-only `GET /api/sample` route so the UI can paste the bundled sample in one click, and mock-only versions of `/api/review` and `/api/parse-criteria` (backed by `llm.ts`'s mock path) so the whole journey runs before slice 4. In Custom mode the single "Review my submission" button first reads the criteria into chips, then "Confirm and review" starts marking; unchanged criteria skip re-confirmation on Review again. Updated the `spec.md` file tree and routes.
 - 503/429 fallback chain, model shown on results, and relaxed latency target (learner decision, 2026-10-16): the review falls back once each through `gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-3.1-flash-lite` on 503 or 429, with no delays or loops, and shows the busy message only if all fail. The answering model is returned as `meta.model` and shown on the results ("Marked by …"). The latency target moves from about 15 s to about 30 s and the loading state gets more care. Updated `spec.md`, `prd.md`, `scope.md` and slices 2 and 4 to match. The review-model spike rerun happens before slice 4.
 - Look pass after the early checkpoint (learner feedback, 2026-10-19): underlines and circles are now hand-drawn SVG strokes (`handdrawn.ts`, `PenCircle.tsx`) instead of CSS text-decoration and border-radius; the paper reads real line rectangles so margin notes stay aligned on resize and long text; handwriting is limited to red-pen notes, verdicts, fixes and circled numbers; the grey note was darkened from `#756f64` (4.7:1 on paper, 4.0:1 on the desk) to `#4f4a42` (8.2:1 and 7.0:1); copy rewritten in a strict-but-fair teacher's voice (the PRD's exact phrases, the free-tier notice and the busy message are unchanged). Before and after screenshots in `docs/screenshots/`. Updated `spec.md > Look and Feel`.
+- Slice 3 also tests the pieces the look pass added (`handdrawn.test.ts`: same seed same stroke, loops never close) and checks the tests can fail: five deliberate bugs in `verify.ts` (no ellipsis rule, off-by-one minimum, no source fallback, wrong end offset, case-insensitive match) each made the suite fail before being reverted. The mock-fixture-vs-Gemini-schema test waits for slice 4, when `geminiSchema.ts` exists.
