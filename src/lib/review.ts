@@ -7,6 +7,7 @@ import {
   type Criterion,
   type CriterionResult,
   type FlagMark,
+  type ModelReviewOutput,
   type ReviewResponse,
   type Texts,
 } from "./schema";
@@ -15,16 +16,24 @@ import { deriveState, verifyCriterion, verifyFlag } from "./verify";
 /** Thrown when the model output breaks the contract. The message is fed back to the model on the one retry. */
 export class ReviewOutputError extends Error {}
 
+/** Zod check plus the rules a Gemini schema can't express. Throws ReviewOutputError with a message the model can act on. */
+export function parseModelOutput(rawOutput: unknown, criteria: Pick<Criterion, "name">[]): ModelReviewOutput {
+  const parsed = ModelReviewOutputSchema.safeParse(rawOutput);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    throw new ReviewOutputError(`${issue.path.join(".") || "reply"}: ${issue.message}`);
+  }
+  const ruleError = checkModelOutputRules(parsed.data, criteria);
+  if (ruleError) throw new ReviewOutputError(ruleError);
+  return parsed.data;
+}
+
 export function buildReviewResponse(
   rawOutput: unknown,
   input: { criteria: Pick<Criterion, "name">[] } & Texts,
   meta: ReviewResponse["meta"],
 ): ReviewResponse {
-  const parsed = ModelReviewOutputSchema.safeParse(rawOutput);
-  if (!parsed.success) throw new ReviewOutputError(parsed.error.message);
-  const output = parsed.data;
-  const ruleError = checkModelOutputRules(output, input.criteria);
-  if (ruleError) throw new ReviewOutputError(ruleError);
+  const output = parseModelOutput(rawOutput, input.criteria);
 
   const texts: Texts = { description: input.description, transcript: input.transcript };
 

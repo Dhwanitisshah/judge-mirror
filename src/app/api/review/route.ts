@@ -4,6 +4,9 @@ import { MAX_CRITERIA, MAX_DESCRIPTION_CHARS, MAX_TRANSCRIPT_CHARS, MIN_CRITERIA
 import { buildReviewResponse } from "@/lib/review";
 import { CriterionSchema } from "@/lib/schema";
 
+// A review may use up to TOTAL_BUDGET_MS (75 s) of model time; this is the host's hard stop (Vercel, if deployed).
+export const maxDuration = 90;
+
 const BodySchema = z.object({
   criteria: z.array(CriterionSchema).min(MIN_CRITERIA).max(MAX_CRITERIA),
   description: z.string(),

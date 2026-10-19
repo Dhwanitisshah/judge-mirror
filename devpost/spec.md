@@ -70,9 +70,9 @@ PRD ref: `prd.md > The Core Journey`.
   - I have not confirmed that every model ID above accepts every level; if a call is rejected, drop to the next level the model accepts or remove the setting for that model.
 - **Mock mode** (`LLM_MOCK=1`): no extra dependency. The check lives in `llm.ts`, the only file that talks to the API.
 - **Unverified, to check early in the build** (each is the first thing to try with a real key):
-  1. Which request shape works: the SDK repo's guide uses `ai.models.generateContent({ model, contents, config: { responseMimeType, responseJsonSchema, ... } })`, while Google's structured-output page documents a different call (`client.interactions.create({ model, input, response_format: { type: "text", mime_type: "application/json", schema } })` and reads `interaction.output_text`). Start with `generateContent`; use the other only if it is the one that works.
-  2. That the property order in the output follows the schema (`propertyOrdering` appears in the SDK guide's example but not on the structured-output page), because evidence-before-score depends on it.
-  3. How to set a request timeout. The SDK docs I read didn't say. Until confirmed, `llm.ts` wraps the call in its own timeout (about 45 seconds) with `Promise.race`.
+  1. **Settled 2026-10-16:** `ai.models.generateContent({ model, contents, config: { responseMimeType, responseJsonSchema, ... } })` works; the `interactions.create` shape is not needed.
+  2. **Settled 2026-10-19:** the output follows the schema's declared order on all three review models with no `propertyOrdering`, so evidence-before-score holds.
+  3. **Settled 2026-10-16:** `config.httpOptions.timeout` (ms) works and throws `AbortError`; Gemini can also answer `504 DEADLINE_EXCEEDED`. Both map to `timeout`. No `Promise.race` needed.
   4. The current Next.js, Tailwind and Zod major versions at scaffold time.
   5. The free-tier limits shown for these two models in AI Studio.
 
@@ -387,10 +387,10 @@ To be filled in during the build, with real numbers. Record the result either wa
 |---|---|---|---|
 | Score consistency at default temperature | default (1.0), 3 runs per fixture | _not yet run_ | _spread per criterion, and whether it is at most 1_ |
 | Lower temperature, only if the spread above is greater than 1 | e.g. 0.2, 3 runs per fixture | _not yet run_ | _spread, any empty, looping or schema-failing output_ |
-| Review thinking level and latency | `LOW`, then `MEDIUM` | _not yet run_ | _seconds per review, and which model answered; keep the highest level under about 30 s_ |
-| Model fallback on 503 or 429 | chain `gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-3.1-flash-lite`, one attempt each | _not yet run for real; unit-tested with a stubbed client in slice 4_ | _how often each model answered; whether the busy message ever shows_ |
-| Criteria parsing thinking level | `MINIMAL` | _not yet run_ | _accepted by the model, or fallback_ |
-| Quote drop rate | server log `droppedCount` over the fixture runs | _not yet run_ | _share of quotes dropped_ |
+| Review thinking level and latency | `LOW`, then `MEDIUM` | Spike (tiny fixture, 1 criterion): `gemini-3.8-flash` MEDIUM 15.2 s; `gemini-3.6-flash` LOW 3.4 s, MEDIUM 6.0 s; `gemini-3.1-flash-lite` LOW 3.4 s, MEDIUM 2.5 s. **Real review of the sample (4 criteria, description + transcript), `gemini-3.8-flash`, `LOW`: 18.1 s** (1,215 tokens in, 796 out). All three accept `LOW` and `MEDIUM`. | `LOW` for every review model. MEDIUM was never needed: 18.1 s is already under the 30 s target and MEDIUM was 4 to 5 times slower than LOW on the one model where both were measured cleanly. A real-size MEDIUM run was not done. |
+| Model fallback on 503 or 429 | chain `gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-3.1-flash-lite`, one attempt each | Unit-tested with a stand-in for Gemini (order, one attempt each, no delay, busy only when all fail). In the real runs the first model answered once and was slow twice, so the chain itself was **not exercised for real**: no 503 or 429 occurred on 2026-10-19 after round 1 of the spike (3.8 returned one 503; 3.6 and 3.1-lite answered). | Keep. **Open:** `gemini-3.8-flash` also fails by being slow (see "Slow responses" below), which the chain does not cover because a timeout does not fall back. |
+| Criteria parsing thinking level | `MINIMAL` | Accepted by `gemini-3.5-flash-lite` (2026-10-16) and by `gemini-3.1-flash-lite`, the parse fallback (2026-10-19, 1.8 s). | `MINIMAL` for both parsing models. Latency of a real criteria parse was not measured. |
+| Quote drop rate | server log `droppedCount` over the fixture runs | 1 real review: 7 quotes returned, 0 dropped (0%). One run only. | Too little data to decide anything; the consistency run (slice 6) adds more. |
 
 ### Spike results (2026-10-16, `scripts/spike-gemini.mjs`, `@google/genai` 2.30.0, `LLM_MOCK` ignored by the script)
 
@@ -405,3 +405,19 @@ Partly settled. `gemini-3.8-flash` and `gemini-3.6-flash` returned HTTP 503 `UNA
 | Thinking level, review model | **Unconfirmed.** `LOW` and `MEDIUM` both returned 503 on both Flash models, so no acceptance or rejection was observed. | 503 on every try. |
 
 New finding, and the decision it led to (learner, 2026-10-16): the free tier can answer **503 UNAVAILABLE**, not only 429. Instead of only showing the busy message, the review falls back once through `gemini-3.8-flash` → `gemini-3.6-flash` → `gemini-3.1-flash-lite` (one attempt each, no delays or loops) and shows the busy message only if all fail. The model that answered is returned as `meta.model` and shown in small grey text on the results. The latency target is relaxed from about 15 s to about 30 s. Before slice 4, rerun the spike (`REVIEW_MODEL=<id> node scripts/spike-gemini.mjs .env.local`) to settle key order and thinking level on the review models, including `gemini-3.1-flash-lite`.
+
+### Spike rerun and first real reviews (2026-10-19, `scripts/spike-gemini.mjs`, then the app with `LLM_MOCK=0`)
+
+The 15-minute all-503 rule was set up first (rounds 90 s apart, abort if every model is 503 for 15 minutes) and **did not trigger**: `gemini-3.6-flash` and `gemini-3.1-flash-lite` answered in round 1, `gemini-3.8-flash` returned 503 in round 1 and answered in round 2.
+
+| Check | Result |
+|---|---|
+| Key order | The reply follows the schema's declared order (`name > evidence > verdict > score > fix`, top level `criteria > flags`) on **all three** review models, at `LOW`, `MEDIUM` and `MINIMAL`, with no `propertyOrdering`. Evidence-before-score is safe. |
+| Thinking levels | `LOW` and `MEDIUM` accepted by all three review models. `MINIMAL` accepted by `gemini-3.1-flash-lite`. No HTTP 400 for any level. |
+| Latency, tiny fixture | `gemini-3.6-flash` LOW 3.4 s / MEDIUM 6.0 s; `gemini-3.1-flash-lite` LOW 3.4 s / MEDIUM 2.5 s / MINIMAL 1.8 s; `gemini-3.8-flash` MEDIUM 15.2 s. |
+| **Slow responses** | The spike's `gemini-3.8-flash` LOW call (no timeout set) **took 262 s** before answering. In the app (45 s call timeout), `gemini-3.8-flash` answered one real review in 18.1 s, then **timed out twice**: once as Google's own `504 DEADLINE_EXCEEDED` at about 45 s, once at 43.6 s. So the best free model can be slow rather than busy. |
+| Real review, sample submission | `gemini-3.8-flash`, first attempt, 18.1 s, 0 of 7 quotes dropped, all four criteria `verified`, the injection line flagged. Scores 4, 4, 3, 2 for Design, Impact, Innovation, Presentation. Screenshot: `docs/screenshots/real1-results.png`. |
+| Voice | That run's verdicts addressed "the user" and "the transcript" instead of speaking to the author. The prompt now says to speak to the author as "you" (test added). **That change has not been confirmed on a real reply** because the two reruns timed out. |
+| Bug found | A Gemini-side `504 DEADLINE_EXCEEDED` was being reported as a generic server error. It is now a `timeout` (test added). |
+
+Decision for the learner: should a timeout also fall through to the next model? Today it does not (only 429 and 503 do, as decided on 2026-10-16). With `gemini-3.8-flash` timing out at 45 s, that user gets "took too long" with two other models untried. A possible rule: cap each of the first two models at about 25 s and fall through on a timeout too, so the worst case still fits the 75 s budget.

@@ -2,6 +2,8 @@ import { z } from "zod";
 import { LlmError, errorResponse, parseCriteriaWithModel } from "@/lib/llm";
 import { MAX_CRITERIA_TEXT_CHARS } from "@/lib/limits";
 
+export const maxDuration = 90;
+
 const BodySchema = z.object({ text: z.string() });
 
 export async function POST(request: Request) {
