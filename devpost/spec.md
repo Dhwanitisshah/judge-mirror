@@ -447,6 +447,7 @@ Decision (learner, 2026-10-20): a timeout or 504 now falls through to the next m
 | 12 | 2026-10-20 | consistency, weak run 2 | `gemini-3.1-flash-lite` | ok | 19.7 s | scores 1,1,1,1 |
 | 13 | 2026-10-20 | consistency, weak run 3 | `gemini-3.1-flash-lite` | ok | 21.3 s | scores 1,1,1,1 |
 | 14 | 2026-10-20 | **final review**, WEAK buzzword fixture, through the app with the new order | `gemini-3.6-flash` then `gemini-3.8-flash` then `gemini-3.1-flash-lite` | 503 (7.1 s), then 503 (6.8 s), then ok (31.0 s) | 44.8 s total | both top models returned 503 within seconds of each other; the first time the 503 fallthrough ran for real |
+| 15 | 2026-10-20 | **final review**, STRONG (Satark), through the app | `gemini-3.6-flash` then `gemini-3.8-flash` then `gemini-3.1-flash-lite` | 503 (2.2 s), then 503 (0.9 s), then ok (22.4 s) | 25.5 s total | tokens in/out/think 2,194 / 844 / 1,141; 0 quotes dropped |
 
 Tally for `gemini-3.8-flash`. In slices 5 and 6 (calls 4 and 7): 1 timeout and 1 503 in 2 calls, so a timeout on exactly half of them, not more than half, by the letter of the rule. Across every real call made through the app (calls 1 to 4): 1 ok (18.1 s), 3 timeouts. Counting the spike too (S1, S4): 503 once and one ok answer that took 262 s. `gemini-3.6-flash`: 3 ok (3.4 s, 3.8 s, 3.4 s in the spike) and 1 503 after 50.6 s. `gemini-3.1-flash-lite`: 10 ok and 1 timeout. The free tier looked degraded across all three models during the consistency run, so these counts mix a model effect with a busy-hour effect. The final-review calls will add more.
 
@@ -493,3 +494,28 @@ After the swap, the first real call through the app: `gemini-3.6-flash` returned
 | Presentation | **1** | not addressed | no video or walk-through mentioned (expected low: confirmed) |
 
 0 quotes dropped, no injection flags (none in the text), every verdict speaks to the author as "you". Screenshot: `docs/screenshots/final-weak-results.png`. The STRONG half of the final review is waiting on the real submission text.
+
+### Final review, part 2: the STRONG submission, and the gap (2026-10-20, preset criteria, no transcript)
+
+**Input:** the "About the project" story of the project owner's real Devpost entry for Satark (`https://devpost.com/software/satark-53rliv`), fetched from the public page and saved as `fixtures/strong-satark-submission.txt`: 5,103 characters, 831 words, from the "Inspiration" heading to the end of "What's next". The page's video, screenshots, "Built With" tags and "Try it out" links are not story text and were left out. The HTML was converted to plain text without changing any word (a script checks that the character stream matches the page exactly). Bullets became "- ", numbered items kept their numbers, and the results table became one line per row with " | " between cells. The published story still contains a template line, "[Optional: one true line about a scam message you or your family received.]", which was kept as published.
+
+**Result:** answered by `gemini-3.1-flash-lite` (call 15: `gemini-3.6-flash` 503 after 2.2 s, `gemini-3.8-flash` 503 after 0.9 s, then `gemini-3.1-flash-lite` ok in 22.4 s), 25.5 s in total. 0 quotes dropped, 6 quotes verified, no injection flags.
+
+| Criterion | STRONG (Satark) | WEAK (buzzwords) | Gap |
+|---|---|---|---|
+| Design | 5 | 1 | 4 |
+| Potential Impact | 5 | 1 | 4 |
+| Innovation/Idea | 4 | 1 | 3 |
+| Presentation | 5 | 1 | 4 |
+| Mean | 4.75 | 1.00 | 3.75 |
+
+Both fixtures were marked by the same model (`gemini-3.1-flash-lite`), so the gap is not a model-mix effect. The direction and size are what a reader would expect: a submission with a quantified problem, named audience, architecture, results table, challenges and limitations against three sentences of buzzwords. The WEAK text scored lowest exactly where predicted (Impact: no audience or problem; Presentation: no demo).
+
+**Where the scores deserve doubt (for the learner):**
+- **Presentation 5 on the strong side is probably generous.** That criterion asks about the video demonstrating the project end to end, and no transcript was given, so the model scored the written pitch (it praised the results table). The same missing-video gap cost the weak fixture its point, but the strong text was credited for writing well instead. A transcript would settle it.
+- **Three 5s from the lightest model.** `gemini-3.1-flash-lite` answered because the two larger models were returning 503. It may be more generous than `gemini-3.6-flash` or `gemini-3.8-flash`; rerun when they answer to see.
+- **Quotes run longer than the prompt asks.** Several quotes span more than one sentence or line (the longest is the "Satark uses two layers" bullet, about 250 characters). They are all real text, so verification is satisfied, but the prompt says "no longer than a sentence".
+
+### Tooling note
+
+Vitest sometimes fails with "failed to find the runner" (seen 3 times), always within seconds of stopping a Next server with `taskkill`; the next run passes. Likely Windows file locks held by the process that was just killed (not confirmed); rerun and move on. It says nothing about the code.

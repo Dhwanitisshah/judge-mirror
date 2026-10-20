@@ -1,0 +1,70 @@
+Inspiration
+
+India lost ₹22,846 crore to cyber fraud in 2024, up from ₹7,465 crore in 2023 and ₹2,290 crore in 2022 (MHA data, Lok Sabha Question 432, Dec 2025). The scripts keep changing: "digital arrest" video calls, fake KYC and electricity-cut SMSes, "like videos and earn" task jobs, UPI "enter your PIN to receive cashback", banking malware sent as .apk files, and AI-cloned relatives asking for urgent money.
+
+[Optional: one true line about a scam message you or your family received.]
+
+The people targeted most, like parents, first-time smartphone users and students looking for jobs, rarely have someone to ask "is this real?" at the moment it matters. I wanted to build that second opinion.
+
+What it does
+
+Satark (Hindi for "alert") checks a suspicious SMS, WhatsApp message, call script or screenshot and tells you, in English, Hindi or Marathi:
+1. Is it a scam? A verdict and a 0–100 risk score.
+2. Why? The exact words that give it away, highlighted in the message.
+3. What do I do now? Concrete steps: call 1930, report at cybercrime.gov.in, block the number via Sanchar Saathi / Chakshu.
+
+The rules verdict appears instantly, then the AI refines it a second later. It also installs as a PWA, so Android users can share a message straight into it.
+
+How I built it
+
+Satark uses two layers on purpose:
+- Rules engine (Python). About 20 India-specific scam patterns (digital arrest, KYC block, courier/customs, task jobs, investment groups, OTP and AnyDesk requests, UPI PIN-to-receive), plus checks for look-alike bank domains (sbi-kyc-update.xyz), throwaway TLDs, URL shorteners, punycode, .apk links, official-sounding personal UPI IDs and foreign numbers. Every flag carries the exact text it matched, so it's explainable and instant, and it works with no API key.
+- AI layer. Groq (qwen3.8-27b) is the primary text model. Gemini 3.5 Flash-Lite is the fallback and reads screenshots. It catches new or reworded scams the rules have never seen, and writes the explanation in the user's language.
+
+Safety rules I built in:
+- risk = max(rules, 0.6 × AI + 0.4 × rules). The AI can raise risk but can never overrule hard evidence like a request for your UPI PIN.
+- AI "red flag" quotes are dropped unless they literally appear in the message, so hallucinated evidence never reaches users.
+- The "what to do now" advice is a fixed, reviewed playbook (English, Hindi and Marathi), never AI-generated.
+
+Stack: FastAPI backend, a dependency-free HTML/JS frontend, deployed on Render. It has per-stage time budgets so a slow provider never blocks the fallback, an LRU cache, a shared keep-alive HTTP client, and 530+ pytest tests.
+
+Results
+
+I wrote 63 labelled messages: known scams, rules-blind scams with no keywords at all, and genuine hard negatives (real bank OTPs, UPI alerts, delivery updates, a real bank warning that mentions AnyDesk).
+| Rules only | Rules + AI
+Known scam scripts | 35/35 | 35/35
+Rules-blind scams | 0/8 | 8/8
+False alarms on 20 genuine messages | 0/20 | 0/20
+
+The rules-blind row is why the AI is there: the rules give instant, explainable coverage of known scripts, and the AI catches the new ones. Live, a text check takes about 1 second (median) and a screenshot about 8 seconds.
+
+Challenges I ran into
+
+- Free-tier model instability. My first model returned 503s and 429s on most calls. I added retries, a cross-provider fallback (Groq ↔ Gemini) and per-stage time budgets, so a slow primary still leaves the fallback time to answer.
+- Render was 7× slower than my laptop. The same AI call took ~7s live and ~1s locally. I added timing logs and found the cause: a new HTTP client per request. A shared keep-alive client brought it to ~1s.
+- A rejected improvement. I tried a prompt change so the AI's reasons would also be in Hindi and Marathi. It kept 43/43 scams but flagged a genuine electricity bill as a scam, so I reverted it. A false alarm costs user trust, so the eval decides, not my preference.
+- Not letting the AI argue away evidence. Designing the fusion so an LLM's "looks fine" can never cancel a hard rule hit took several iterations and tests.
+
+Accomplishments I'm proud of
+
+- 8/8 rules-blind scams caught with zero false alarms on genuine messages.
+- Safety advice in three languages that the AI can never rewrite.
+- An honest eval: I report what's in-sample, what generalises, and where it fails.
+
+What I learned
+
+Hard rules plus an LLM beats either alone. Evaluation sets need hard negatives, or "100% detection" is meaningless. And production latency is often plumbing, not the model.
+
+Known limitations
+
+- "Low risk" is not a guarantee, and the UI says so.
+- If Gemini answers instead of Groq, it flags one genuine message (a friend asking for ₹500 on UPI) as risky.
+- The AI's per-phrase reasons are still in English.
+- Checked text is sent to the AI provider; Satark itself stores nothing.
+
+What's next
+
+- A direct WhatsApp/Android share flow, tested on real devices.
+- Voice-note checks for cloned-voice "relative in trouble" calls.
+- Community-reported numbers and domains, cross-checked with Chakshu.
+- An offline, rules-only Android mode.
