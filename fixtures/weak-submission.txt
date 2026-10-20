@@ -1,0 +1,3 @@
+NoteNest
+
+NoteNest is a notes app. You can write notes and save them. We built it for the hackathon with some friends. It has a nice design and we think it is a very innovative idea that could help a lot of people. The video shows the app.
