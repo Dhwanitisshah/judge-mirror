@@ -450,6 +450,9 @@ Decision (learner, 2026-10-20): a timeout or 504 now falls through to the next m
 | 13 | 2026-10-20 | consistency, weak run 3 | `gemini-3.1-flash-lite` | ok | 21.3 s | scores 1,1,1,1 |
 | 14 | 2026-10-20 | **final review**, WEAK buzzword fixture, through the app with the new order | `gemini-3.6-flash` then `gemini-3.8-flash` then `gemini-3.1-flash-lite` | 503 (7.1 s), then 503 (6.8 s), then ok (31.0 s) | 44.8 s total | both top models returned 503 within seconds of each other; the first time the 503 fallthrough ran for real |
 | 15 | 2026-10-20 | **final review**, STRONG (Satark), through the app | `gemini-3.6-flash` then `gemini-3.8-flash` then `gemini-3.1-flash-lite` | 503 (2.2 s), then 503 (0.9 s), then ok (22.4 s) | 25.5 s total | tokens in/out/think 2,194 / 844 / 1,141; 0 quotes dropped |
+| 16 | 2026-10-20 | **learner's own run**, port 3100 (real mode), a review | `gemini-3.6-flash` 503 (2.4 s), `gemini-3.8-flash` 503 (4.1 s), `gemini-3.1-flash-lite` 503 (2.4 s) | all three busy: the busy message | 8.9 s total | all three models returned 503 within the same few seconds |
+| 17 | 2026-10-20 | learner's own run, port 3100, a review | `gemini-3.6-flash` (first attempt) | ok | 4.7 s | 0 quotes dropped; tokens in/out 1,105 / 550 |
+| 18 | 2026-10-20 | learner's own run, port 3100, **criteria parsing** (Custom path) | `gemini-3.5-flash-lite` timeout (24.6 s, the 25 s cap), then `gemini-3.1-flash-lite` 503 (0.6 s) | timeout | 25.3 s total | the first real criteria-parsing call of the whole build, and it failed |
 
 Tally for `gemini-3.8-flash`. In slices 5 and 6 (calls 4 and 7): 1 timeout and 1 503 in 2 calls, so a timeout on exactly half of them, not more than half, by the letter of the rule. Across every real call made through the app (calls 1 to 4): 1 ok (18.1 s), 3 timeouts. Counting the spike too (S1, S4): 503 once and one ok answer that took 262 s. `gemini-3.6-flash`: 3 ok (3.4 s, 3.8 s, 3.4 s in the spike) and 1 503 after 50.6 s. `gemini-3.1-flash-lite`: 10 ok and 1 timeout. The free tier looked degraded across all three models during the consistency run, so these counts mix a model effect with a busy-hour effect. The final-review calls will add more.
 
@@ -529,3 +532,15 @@ The strong Satark submission scored Presentation 5 from its written text alone, 
 ### Quote length, prompt only (2026-10-20)
 
 The evidence rule in the system prompt now reads "Each quote must be verbatim and one sentence or less ... Never put two sentences in one quote, and never let a quote run across a line break, a heading or a bullet boundary." Not yet checked on a real run; if a real run still returns multi-sentence quotes, the next step is a length rule in `verify.ts`.
+
+### Final review, part 3: the learner's own exploration (2026-10-20)
+
+**What the learner reported:** on port 3000 (mock mode) the sample flow, custom criteria chips, the 50 and 300 character rules, Stage One ticks surviving Review again, and the 390 px layout all worked. On port 3100 (real mode) a "NoteSwap" test submission was reviewed twice: without a transcript the Presentation cap and the handwritten note appeared; with a transcript the cap and note were gone and the transcript quotes showed in their own tab. The learner confirmed the final review is complete and the proof of concept is ready.
+
+**What the 3100 server log shows (calls 16 to 18 above):** two reviews and one criteria parse. One review failed with every model returning 503 (the busy message); one succeeded on `gemini-3.6-flash` in 4.7 s with no dropped quotes; the criteria parse timed out. Two limits on this record:
+- It contains **one successful review, not two.** The log holds no text and no scores, so it cannot say which of the learner's two NoteSwap runs the successful one was, and the other run does not appear in this server's log (it may have gone through a different server instance, or an attempt may have been the all-503 one and been retried). No call for it is invented here.
+- **The server does not log scores**, only model, outcome, latency, tokens and the drop count, so no per-criterion scores for the NoteSwap runs can be taken from it. Scores were seen on screen by the learner only.
+
+**Criteria parsing has never been seen working on the real API.** Its only real call (18) failed, and every other check of it is mock mode or unit tests with a stand-in for Gemini. The Custom path's chips screen was verified against the mock fixture.
+
+**Updated model tally** (real calls through the app and the one-call probes, not the tiny-fixture spike): `gemini-3.8-flash` answered 1 of 8 (calls 1 to 4, 7, 14, 15, 16: one ok, three timeouts, four 503s). `gemini-3.6-flash` answered 4 of 8 counting the spike (all four answers took 3.4 to 6.0 s; the other four were 503s). `gemini-3.1-flash-lite` answered every call it was asked except one timeout and one 503. In 4 of the last 5 reviews (calls 4, 14, 15, 16) at least one of the top two models failed, and in three of them (14, 15, 16) both returned 503 within seconds of each other. The order swap saved nothing on those calls; it only helps when `gemini-3.8-flash` is slow rather than busy.

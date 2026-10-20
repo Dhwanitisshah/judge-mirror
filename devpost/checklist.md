@@ -82,11 +82,11 @@ Build mode: fast (confirmed by the learner at the start of the build session)
 ## Hands-on Checkpoints
 
 - [x] Early usable behavior explored — after slice 2 (the whole journey runs in mock mode)
-- [ ] Final kick-the-tires exploration and feedback completed — one strong real Devpost submission and one deliberately weak one written by the learner; confirm the scores differ sensibly
+- [x] Final kick-the-tires exploration and feedback completed — one strong real Devpost submission and one deliberately weak one written by the learner; confirm the scores differ sensibly
 
 ## Final Review
 
-- [ ] Final review complete — feedback resolved and learner confirms ready to ship
+- [x] Final review complete — feedback resolved and learner confirms ready to ship
 
 ## Code Tour and App Map
 
@@ -115,3 +115,4 @@ Activity mode: [live app and editor, explicit static fallback, focused alternati
 - Final review is half done: the WEAK fixture ran (all four criteria 1; Impact and Presentation low as expected). The STRONG half is waiting: the pasted block was still the template placeholder ("[paste your Satark or Stanza ... text here]"), so there was no real submission to run. The "Final kick-the-tires" and "Final review complete" boxes stay unchecked until it runs and the learner confirms.
 - Final review, STRONG half run (2026-10-20): the real Satark story from the public Devpost page scored Design 5, Impact 5, Innovation 4, Presentation 5 against 1, 1, 1, 1 for the buzzword fixture, both marked by `gemini-3.1-flash-lite` (the larger models returned 503). The gap is large and in the right direction; Presentation 5 is probably generous without a transcript. Still open before "Final review complete": the learner exploring the running app themselves and explicitly confirming it is ready.
 - Two small fixes before the learner's final review (2026-10-20): (1) with no transcript, Presentation is capped at 3 in code and its card shows the agreed note (`notes.ts`, `review.ts`, `CriterionCard.tsx`; `prd.md` and `spec.md` updated; unit-tested); (2) the prompt now says quotes are "verbatim and one sentence or less", with no new code rule. While testing, a bug from the input screen turned up and was fixed: clearing a transcript made its box collapse under the cursor; it now stays open once typed in.
+- Final review complete (learner, 2026-10-20): the learner explored the mock server and ran a real NoteSwap submission twice on the real one (cap and note present without a transcript, absent with one; transcript quotes in their own tab) and confirmed the proof of concept is ready. The call log has the server-log record; it shows one successful review and one failed criteria parse, and it cannot tell which NoteSwap run was which (see `spec.md > Experiment Log`). `next-env.d.ts` is now untracked and ignored, as the Next.js docs recommend.
