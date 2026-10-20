@@ -1,0 +1,259 @@
+{
+  "model": "gemini-3.1-flash-lite",
+  "temperature": "default",
+  "runs": 3,
+  "at": "2026-10-20T13:41:35.695Z",
+  "summary": {
+    "sample": {
+      "rows": [
+        {
+          "criterion": "Design",
+          "scores": [
+            4,
+            3,
+            4
+          ],
+          "spread": 1,
+          "dropped": 0,
+          "states": [
+            "verified",
+            "verified",
+            "verified"
+          ]
+        },
+        {
+          "criterion": "Potential Impact",
+          "scores": [
+            4,
+            4,
+            4
+          ],
+          "spread": 0,
+          "dropped": 0,
+          "states": [
+            "verified",
+            "verified",
+            "verified"
+          ]
+        },
+        {
+          "criterion": "Innovation/Idea",
+          "scores": [
+            3,
+            3,
+            3
+          ],
+          "spread": 0,
+          "dropped": 0,
+          "states": [
+            "verified",
+            "verified",
+            "verified"
+          ]
+        },
+        {
+          "criterion": "Presentation",
+          "scores": [
+            2,
+            2,
+            2
+          ],
+          "spread": 0,
+          "dropped": 0,
+          "states": [
+            "verified",
+            "not-addressed",
+            "verified"
+          ]
+        }
+      ],
+      "worst": 1,
+      "runs": [
+        {
+          "ok": true,
+          "ms": 5284,
+          "answeredBy": "gemini-3.1-flash-lite",
+          "scores": [
+            4,
+            4,
+            3,
+            2
+          ],
+          "states": [
+            "verified",
+            "verified",
+            "verified",
+            "verified"
+          ],
+          "dropped": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "attempts": "gemini-3.1-flash-lite:ok:5277ms"
+        },
+        {
+          "ok": true,
+          "ms": 35982,
+          "answeredBy": "gemini-3.1-flash-lite",
+          "scores": [
+            3,
+            4,
+            3,
+            2
+          ],
+          "states": [
+            "verified",
+            "verified",
+            "verified",
+            "not-addressed"
+          ],
+          "dropped": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "attempts": "gemini-3.1-flash-lite:ok:35977ms"
+        },
+        {
+          "ok": true,
+          "ms": 12048,
+          "answeredBy": "gemini-3.1-flash-lite",
+          "scores": [
+            4,
+            4,
+            3,
+            2
+          ],
+          "states": [
+            "verified",
+            "verified",
+            "verified",
+            "verified"
+          ],
+          "dropped": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "attempts": "gemini-3.1-flash-lite:ok:12044ms"
+        }
+      ]
+    },
+    "weak": {
+      "rows": [
+        {
+          "criterion": "Design",
+          "scores": [
+            1,
+            1
+          ],
+          "spread": 0,
+          "dropped": 0,
+          "states": [
+            "not-addressed",
+            "verified"
+          ]
+        },
+        {
+          "criterion": "Potential Impact",
+          "scores": [
+            1,
+            1
+          ],
+          "spread": 0,
+          "dropped": 0,
+          "states": [
+            "not-addressed",
+            "verified"
+          ]
+        },
+        {
+          "criterion": "Innovation/Idea",
+          "scores": [
+            1,
+            1
+          ],
+          "spread": 0,
+          "dropped": 0,
+          "states": [
+            "not-addressed",
+            "not-addressed"
+          ]
+        },
+        {
+          "criterion": "Presentation",
+          "scores": [
+            1,
+            1
+          ],
+          "spread": 0,
+          "dropped": 0,
+          "states": [
+            "verified",
+            "verified"
+          ]
+        }
+      ],
+      "worst": 0,
+      "runs": [
+        {
+          "ok": false,
+          "error": "timeout",
+          "ms": 73963
+        },
+        {
+          "ok": true,
+          "ms": 19696,
+          "answeredBy": "gemini-3.1-flash-lite",
+          "scores": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "states": [
+            "not-addressed",
+            "not-addressed",
+            "not-addressed",
+            "verified"
+          ],
+          "dropped": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "attempts": "gemini-3.1-flash-lite:ok:19696ms"
+        },
+        {
+          "ok": true,
+          "ms": 21316,
+          "answeredBy": "gemini-3.1-flash-lite",
+          "scores": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "states": [
+            "verified",
+            "verified",
+            "not-addressed",
+            "verified"
+          ],
+          "dropped": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "attempts": "gemini-3.1-flash-lite:ok:21316ms"
+        }
+      ]
+    }
+  }
+}

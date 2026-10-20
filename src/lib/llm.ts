@@ -111,6 +111,8 @@ export async function generateWithFallback<T>(opts: {
   validate: (json: unknown) => T;
   generate?: Generate;
   budgetMs?: number;
+  /** Left unset in the app (the default, 1.0, is part of the plan). Only the consistency experiment sets it. */
+  temperature?: number;
   /** Prefix for the server log line that lists every attempt (model, outcome, milliseconds). */
   label?: string;
 }): Promise<{ value: T; model: string; attempts: Attempt[]; tokens?: GenerateResult["usageMetadata"] }> {
@@ -143,6 +145,7 @@ export async function generateWithFallback<T>(opts: {
               responseMimeType: "application/json",
               responseJsonSchema: opts.schema,
               ...(level ? { thinkingConfig: { thinkingLevel: level } } : {}),
+              ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}),
               httpOptions: { timeout },
             },
           });
@@ -225,6 +228,7 @@ export async function reviewWithModel(
   input: { criteria: Criterion[]; description: string; transcript?: string },
   generate?: Generate,
   models: readonly string[] = REVIEW_MODELS,
+  options: { temperature?: number } = {},
 ): Promise<{ output: unknown; model: string; mock: boolean; attempts: Attempt[]; tokens?: GenerateResult["usageMetadata"] }> {
   if (isMockMode()) return { output: mockReviewFor(input.criteria), model: "mock", mock: true, attempts: [] };
 
@@ -236,6 +240,7 @@ export async function reviewWithModel(
     schema: REVIEW_JSON_SCHEMA,
     validate: (json) => parseModelOutput(json, input.criteria),
     generate,
+    temperature: options.temperature,
     label: "review",
   });
   console.log(`review: tokens in/out/think=${tokens?.promptTokenCount}/${tokens?.candidatesTokenCount}/${tokens?.thoughtsTokenCount}`);
