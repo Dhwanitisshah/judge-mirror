@@ -10,6 +10,9 @@ const STATUS_LINES = [
 ];
 const STATUS_EVERY_MS = 4500;
 const SLOW_AFTER_MS = 20000;
+// The first model is cut off after 25 s (PER_MODEL_CAP_MS in llm.ts, server-only), so a review still running at 26 s
+// really has moved on to another model. Saying so any earlier would not be true.
+const SWITCHED_AFTER_MS = 26000;
 const SWEEP_PATH = wavyUnderlinePath(1200, 4242);
 
 /**
@@ -27,6 +30,7 @@ export function MarkingState({ text }: { text: string }) {
 
   const line = STATUS_LINES[Math.floor(elapsed / STATUS_EVERY_MS) % STATUS_LINES.length];
   const slow = elapsed >= SLOW_AFTER_MS;
+  const switched = elapsed >= SWITCHED_AFTER_MS;
 
   return (
     <section
@@ -45,7 +49,11 @@ export function MarkingState({ text }: { text: string }) {
       <div className="p-5 pb-4 md:p-6">
         <h2 className="font-hand text-4xl font-bold text-redpen">Marking your paper…</h2>
         <p className="mt-1 font-hand text-[1.6rem] leading-snug text-redpen">{line}</p>
-        {slow && <p className="mt-2 text-[0.95rem] text-grey-note">Still marking. The free API can be slow.</p>}
+        {slow && (
+          <p className="mt-2 text-[0.95rem] text-grey-note">
+            {switched ? "Still marking, trying another examiner…" : "Still marking. The free API can be slow."}
+          </p>
+        )}
       </div>
       <div className="max-h-[22rem] overflow-hidden whitespace-pre-wrap px-5 pb-6 text-[1.05rem] leading-8 text-ink/70 md:px-6">
         {text}

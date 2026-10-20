@@ -3,9 +3,11 @@
 // What it promises:
 //  - Gemini's structured-output mode, then Zod on every reply. If the reply breaks the contract it makes exactly one
 //    more call, to the same model, with the problem attached. That is the only retry on bad output.
-//  - On HTTP 429 or 503 only, it moves straight to the next model in the chain: one attempt per model, no delay,
-//    no loop, no second pass. If every model is busy it gives up with `rate_limited`.
-//  - A timeout, a 400, an empty or blocked reply, or anything else is never retried and never falls back.
+//  - A model that is busy (429 or 503) or too slow (our own timeout, or Gemini's 504) is skipped: the next model in
+//    the chain gets one attempt, immediately. One attempt per model, no delay, no loop, no second pass.
+//  - The first models in the chain are capped at PER_MODEL_CAP_MS each; the last model gets whatever is left of the
+//    total budget. So the whole review can never run past TOTAL_BUDGET_MS.
+//  - A 400, an empty or blocked reply, or anything unexpected is never retried and never falls back.
 //  - It says which model answered, so the results screen can show "Marked by …".
 //  - With LLM_MOCK=1 the model call is replaced by fixtures (mock.ts); everything after it is the real code.
 
@@ -39,9 +41,9 @@ export const THINKING: Record<string, ThinkingLevel | undefined> = {
   "gemini-3.5-flash-lite": "MINIMAL",
 };
 
-/** One call may take this long before it is cut off. */
-export const CALL_TIMEOUT_MS = 45_000;
-/** The whole review, retry included, may take this long. */
+/** Every model except the last may take this long per call before the next one gets its turn. */
+export const PER_MODEL_CAP_MS = 25_000;
+/** The whole review, retries and fallbacks included. The last model in the chain gets what is left of this. */
 export const TOTAL_BUDGET_MS = 75_000;
 
 // ---------- Errors ----------
@@ -94,7 +96,7 @@ const statusOf = (e: unknown): number | null =>
   typeof (e as { status?: unknown })?.status === "number" ? (e as { status: number }).status : null;
 const isBusy = (e: unknown) => statusOf(e) === 429 || statusOf(e) === 503;
 // Our own cut-off surfaces as an AbortError. When the deadline we send expires on Google's side instead, Gemini answers
-// HTTP 504 DEADLINE_EXCEEDED (seen on gemini-3.8-flash during the slice 4 run). Both mean "too slow", not "broken".
+// HTTP 504 DEADLINE_EXCEEDED (seen on gemini-3.8-flash). Both mean "too slow", and both skip to the next model.
 const isTimeout = (e: unknown) =>
   ["AbortError", "TimeoutError"].includes((e as { name?: string })?.name ?? "") || statusOf(e) === 504;
 
@@ -109,84 +111,102 @@ export async function generateWithFallback<T>(opts: {
   validate: (json: unknown) => T;
   generate?: Generate;
   budgetMs?: number;
+  /** Prefix for the server log line that lists every attempt (model, outcome, milliseconds). */
+  label?: string;
 }): Promise<{ value: T; model: string; attempts: Attempt[]; tokens?: GenerateResult["usageMetadata"] }> {
   const generate = opts.generate ?? realGenerate;
   const started = Date.now();
   const budget = opts.budgetMs ?? TOTAL_BUDGET_MS;
   const attempts: Attempt[] = [];
+  let outcome = "failed";
 
-  async function once(model: string, contents: string): Promise<GenerateResult> {
-    const remaining = budget - (Date.now() - started);
-    if (remaining < 3000) throw new LlmError("timeout", "out of time");
-    const level = THINKING[model];
-    const t0 = Date.now();
-    try {
-      const result = await generate({
-        model,
-        contents,
-        config: {
-          systemInstruction: opts.systemInstruction,
-          responseMimeType: "application/json",
-          responseJsonSchema: opts.schema,
-          ...(level ? { thinkingConfig: { thinkingLevel: level } } : {}),
-          httpOptions: { timeout: Math.min(CALL_TIMEOUT_MS, remaining) },
-        },
-      });
-      attempts.push({ model, status: "ok", ms: Date.now() - t0 });
-      return result;
-    } catch (e) {
-      const status = statusOf(e);
-      attempts.push({ model, status: status ?? (isTimeout(e) ? "timeout" : "error"), ms: Date.now() - t0 });
-      throw e;
-    }
-  }
+  try {
+    let sawTimeout = false;
 
-  function readJson(result: GenerateResult): unknown {
-    if (result.promptFeedback?.blockReason) throw new LlmError("refused", `blocked: ${result.promptFeedback.blockReason}`);
-    const text = result.text?.trim();
-    if (!text) throw new LlmError("refused", "empty reply");
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new Error("The reply was not valid JSON.");
-    }
-  }
+    for (let i = 0; i < opts.models.length; i++) {
+      const model = opts.models[i];
+      const isLast = i === opts.models.length - 1;
 
-  for (const model of opts.models) {
-    try {
-      let result = await once(model, opts.contents);
-      let value: T;
+      const once = async (contents: string): Promise<GenerateResult> => {
+        const remaining = budget - (Date.now() - started);
+        if (remaining < 3000) throw new LlmError("timeout", "out of time");
+        const level = THINKING[model];
+        // Every model but the last is capped; the last gets whatever is left of the total budget.
+        const timeout = isLast ? remaining : Math.min(PER_MODEL_CAP_MS, remaining);
+        const t0 = Date.now();
+        try {
+          const result = await generate({
+            model,
+            contents,
+            config: {
+              systemInstruction: opts.systemInstruction,
+              responseMimeType: "application/json",
+              responseJsonSchema: opts.schema,
+              ...(level ? { thinkingConfig: { thinkingLevel: level } } : {}),
+              httpOptions: { timeout },
+            },
+          });
+          attempts.push({ model, status: "ok", ms: Date.now() - t0 });
+          return result;
+        } catch (e) {
+          attempts.push({ model, status: isTimeout(e) ? "timeout" : (statusOf(e) ?? "error"), ms: Date.now() - t0 });
+          throw e;
+        }
+      };
+
+      const readJson = (result: GenerateResult): unknown => {
+        if (result.promptFeedback?.blockReason) throw new LlmError("refused", `blocked: ${result.promptFeedback.blockReason}`);
+        const text = result.text?.trim();
+        if (!text) throw new LlmError("refused", "empty reply");
+        try {
+          return JSON.parse(text);
+        } catch {
+          throw new Error("The reply was not valid JSON.");
+        }
+      };
+
       try {
-        value = opts.validate(readJson(result));
-      } catch (first) {
-        if (first instanceof LlmError) throw first;
-        // Exactly one retry, to the same model, with the problem attached.
-        result = await once(model, opts.contents + retryNote((first as Error).message));
+        let result = await once(opts.contents);
+        let value: T;
         try {
           value = opts.validate(readJson(result));
-        } catch (second) {
-          if (second instanceof LlmError) throw second;
-          throw new LlmError("bad_output", (second as Error).message);
+        } catch (first) {
+          if (first instanceof LlmError) throw first;
+          // Exactly one retry, to the same model, with the problem attached.
+          result = await once(opts.contents + retryNote((first as Error).message));
+          try {
+            value = opts.validate(readJson(result));
+          } catch (second) {
+            if (second instanceof LlmError) throw second;
+            throw new LlmError("bad_output", (second as Error).message);
+          }
         }
+        outcome = `answered by ${model}`;
+        return { value, model, attempts, tokens: result.usageMetadata };
+      } catch (e) {
+        if (e instanceof LlmError) throw e;
+        if (isBusy(e)) continue; // 429 or 503: the next model gets one go, immediately
+        if (isTimeout(e)) {
+          sawTimeout = true; // too slow: same treatment
+          continue;
+        }
+        console.error(`llm: ${model} failed with status ${statusOf(e) ?? "unknown"}:`, (e as Error)?.message?.slice(0, 200));
+        throw new LlmError("server");
       }
-      return { value, model, attempts, tokens: result.usageMetadata };
-    } catch (e) {
-      if (e instanceof LlmError) throw e;
-      if (isBusy(e)) continue; // 429 or 503: the next model gets one go, immediately
-      if (isTimeout(e)) throw new LlmError("timeout");
-      console.error(`llm: ${model} failed with status ${statusOf(e) ?? "unknown"}:`, (e as Error)?.message?.slice(0, 200));
-      throw new LlmError("server");
     }
+    // Every model was skipped. "Busy" only if all of them were busy; if any was too slow, say so.
+    throw new LlmError(sawTimeout ? "timeout" : "rate_limited");
+  } catch (e) {
+    if (e instanceof LlmError) outcome = e.code;
+    throw e;
+  } finally {
+    // One line per request, failures included: this is where per-model latency and outcome come from.
+    const trail = attempts.map((a) => `${a.model}:${a.status}:${a.ms}ms`).join(" > ") || "no calls";
+    console.log(`${opts.label ?? "llm"}: ${outcome} in ${Date.now() - started}ms [${trail}]`);
   }
-  throw new LlmError("rate_limited");
 }
 
 // ---------- The two calls the routes make ----------
-
-function logAttempts(label: string, model: string, attempts: Attempt[], tokens?: GenerateResult["usageMetadata"]) {
-  const trail = attempts.map((a) => `${a.model}:${a.status}:${a.ms}ms`).join(" > ");
-  console.log(`${label}: answered=${model} attempts=${attempts.length} [${trail}] tokens in/out/think=${tokens?.promptTokenCount}/${tokens?.candidatesTokenCount}/${tokens?.thoughtsTokenCount}`);
-}
 
 /** Mock review: fixture entries are mapped onto the confirmed criteria by position and renamed to match. */
 function mockReviewFor(criteria: Pick<Criterion, "name">[]): unknown {
@@ -197,24 +217,29 @@ function mockReviewFor(criteria: Pick<Criterion, "name">[]): unknown {
   };
 }
 
-/** Returns the model's validated JSON for a review plus the model that produced it. */
+/**
+ * Returns the model's validated JSON for a review plus the model that produced it.
+ * `models` defaults to the fallback chain; scripts/consistency.ts passes a single model to measure it with no fallback.
+ */
 export async function reviewWithModel(
   input: { criteria: Criterion[]; description: string; transcript?: string },
   generate?: Generate,
-): Promise<{ output: unknown; model: string; mock: boolean }> {
-  if (isMockMode()) return { output: mockReviewFor(input.criteria), model: "mock", mock: true };
+  models: readonly string[] = REVIEW_MODELS,
+): Promise<{ output: unknown; model: string; mock: boolean; attempts: Attempt[]; tokens?: GenerateResult["usageMetadata"] }> {
+  if (isMockMode()) return { output: mockReviewFor(input.criteria), model: "mock", mock: true, attempts: [] };
 
   const suffix = makeSuffix(input.description, input.transcript, ...input.criteria.map((c) => c.name + c.description));
   const { value, model, attempts, tokens } = await generateWithFallback<ModelReviewOutput>({
-    models: REVIEW_MODELS,
+    models,
     systemInstruction: reviewSystemInstruction(suffix),
     contents: reviewContents(input, suffix),
     schema: REVIEW_JSON_SCHEMA,
     validate: (json) => parseModelOutput(json, input.criteria),
     generate,
+    label: "review",
   });
-  logAttempts("review", model, attempts, tokens);
-  return { output: value, model, mock: false };
+  console.log(`review: tokens in/out/think=${tokens?.promptTokenCount}/${tokens?.candidatesTokenCount}/${tokens?.thoughtsTokenCount}`);
+  return { output: value, model, mock: false, attempts, tokens };
 }
 
 export async function parseCriteriaWithModel(
@@ -227,7 +252,7 @@ export async function parseCriteriaWithModel(
   }
 
   const suffix = makeSuffix(text);
-  const { value, model, attempts, tokens } = await generateWithFallback<Criterion[]>({
+  const { value, model } = await generateWithFallback<Criterion[]>({
     models: PARSE_MODELS,
     systemInstruction: parseCriteriaSystemInstruction(suffix),
     contents: parseCriteriaContents(text, suffix),
@@ -241,7 +266,7 @@ export async function parseCriteriaWithModel(
       return parsed.data.criteria;
     },
     generate,
+    label: "parse-criteria",
   });
-  logAttempts("parse-criteria", model, attempts, tokens);
   return { criteria: value, model };
 }

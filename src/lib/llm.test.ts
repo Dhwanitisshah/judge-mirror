@@ -3,9 +3,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PARSE_CRITERIA_JSON_SCHEMA, REVIEW_JSON_SCHEMA } from "./geminiSchema";
 import {
-  CALL_TIMEOUT_MS,
   LlmError,
   PARSE_MODELS,
+  PER_MODEL_CAP_MS,
   REVIEW_MODELS,
   THINKING,
   generateWithFallback,
@@ -84,18 +84,54 @@ describe("model fallback on 503 or 429", () => {
   });
 });
 
-describe("what does NOT fall back", () => {
-  it("a timeout stops the chain and says timeout", async () => {
-    const { generate, calls } = script([abortError()]);
-    await expect(reviewWithModel(reviewInput, generate)).rejects.toMatchObject({ code: "timeout" });
-    expect(calls).toHaveLength(1);
+describe("a model that is too slow is skipped, like one that is busy", () => {
+  it("our own timeout falls through to the next model", async () => {
+    const { generate, calls } = script([abortError(), reply(goodReview)]);
+    const r = await reviewWithModel(reviewInput, generate);
+    expect(calls.map((c) => c.model)).toEqual(["gemini-3.8-flash", "gemini-3.6-flash"]);
+    expect(r.model).toBe("gemini-3.6-flash");
+    expect(r.attempts.map((a) => [a.model, a.status])).toEqual([
+      ["gemini-3.8-flash", "timeout"],
+      ["gemini-3.6-flash", "ok"],
+    ]);
   });
 
-  it("Gemini's own 504 DEADLINE_EXCEEDED is a timeout too, not a server error", async () => {
-    const { generate, calls } = script([apiError(504)]);
-    await expect(reviewWithModel(reviewInput, generate)).rejects.toMatchObject({ code: "timeout" });
-    expect(calls).toHaveLength(1);
+  it("Gemini's own 504 DEADLINE_EXCEEDED falls through too", async () => {
+    const { generate, calls } = script([apiError(504), reply(goodReview)]);
+    const r = await reviewWithModel(reviewInput, generate);
+    expect(r.model).toBe("gemini-3.6-flash");
+    expect(calls).toHaveLength(2);
   });
+
+  it("a mix of busy and slow still walks the whole chain once, one attempt each", async () => {
+    const { generate, calls } = script([abortError(), apiError(503), reply(goodReview)]);
+    const r = await reviewWithModel(reviewInput, generate);
+    expect(calls.map((c) => c.model)).toEqual([...REVIEW_MODELS]);
+    expect(r.model).toBe("gemini-3.1-flash-lite");
+    expect(r.attempts.map((a) => a.status)).toEqual(["timeout", 503, "ok"]);
+  });
+
+  it("says timeout when every model was too slow, with no extra attempts", async () => {
+    const { generate, calls } = script([abortError(), apiError(504), abortError()]);
+    await expect(reviewWithModel(reviewInput, generate)).rejects.toMatchObject({ code: "timeout" });
+    expect(calls).toHaveLength(REVIEW_MODELS.length);
+  });
+
+  it("says timeout (not busy) when some models were slow and the rest busy", async () => {
+    const { generate } = script([abortError(), apiError(503), apiError(429)]);
+    await expect(reviewWithModel(reviewInput, generate)).rejects.toMatchObject({ code: "timeout" });
+  });
+
+  it("a timeout on the retry after bad output also moves to the next model", async () => {
+    const badJson = reply("not json");
+    const { generate, calls } = script([badJson, abortError(), reply(goodReview)]);
+    const r = await reviewWithModel(reviewInput, generate);
+    expect(calls.map((c) => c.model)).toEqual(["gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.6-flash"]);
+    expect(r.model).toBe("gemini-3.6-flash");
+  });
+});
+
+describe("what does NOT fall back", () => {
 
   it("a 400 is a server error, not a reason to try another model", async () => {
     const { generate, calls } = script([apiError(400)]);
@@ -194,16 +230,41 @@ describe("Zod, and the one retry", () => {
 });
 
 describe("the request that is sent", () => {
-  it("asks for JSON with the schema, a timeout under the cap, and the thinking level for that model", async () => {
+  it("asks for JSON with the schema and the thinking level for that model", async () => {
     const { generate, calls } = script([apiError(503), reply(goodReview)]);
     await reviewWithModel(reviewInput, generate);
     for (const call of calls) {
       expect(call.config.responseMimeType).toBe("application/json");
       expect(call.config.responseJsonSchema).toEqual(REVIEW_JSON_SCHEMA);
-      expect((call.config.httpOptions as { timeout: number }).timeout).toBeLessThanOrEqual(CALL_TIMEOUT_MS);
       expect(call.config).not.toHaveProperty("temperature"); // the default temperature is part of the plan
       expect(call.config.thinkingConfig).toEqual({ thinkingLevel: THINKING[call.model] });
     }
+  });
+
+  it("caps the first two models at 25 s each and gives the last model what is left of the 75 s budget", async () => {
+    const { generate, calls } = script([apiError(503), apiError(503), reply(goodReview)]);
+    await reviewWithModel(reviewInput, generate);
+    const timeouts = calls.map((c) => (c.config.httpOptions as { timeout: number }).timeout);
+    expect(timeouts[0]).toBe(PER_MODEL_CAP_MS);
+    expect(timeouts[1]).toBe(PER_MODEL_CAP_MS);
+    expect(PER_MODEL_CAP_MS).toBe(25_000);
+    expect(timeouts[2]).toBeGreaterThan(70_000); // nearly all of 75 s: the first two failed instantly in this test
+    expect(timeouts[2]).toBeLessThanOrEqual(75_000);
+  });
+
+  it("never lets a model's cap run past what is left of the total budget", async () => {
+    const { generate, calls } = script([apiError(503), apiError(503), reply(goodReview)]);
+    await generateWithFallback({
+      models: REVIEW_MODELS,
+      systemInstruction: "s",
+      contents: "c",
+      schema: {},
+      validate: (j) => j,
+      generate,
+      budgetMs: 10_000,
+    });
+    const timeouts = calls.map((c) => (c.config.httpOptions as { timeout: number }).timeout);
+    expect(timeouts.every((t) => t <= 10_000)).toBe(true);
   });
 
   it("sets no thinking config for a model with no configured level", async () => {
