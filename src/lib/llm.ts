@@ -27,8 +27,12 @@ import { ParseCriteriaOutputSchema, type Criterion, type ModelReviewOutput } fro
 
 // ---------- Models (spec.md > Stack). Constants live here and nowhere else. ----------
 
-/** Review: best free Flash model first, then the fallbacks, one attempt each. */
-export const REVIEW_MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.1-flash-lite"] as const;
+/**
+ * Review chain, one attempt each. gemini-3.6-flash goes first because it has answered fast whenever it answered at all;
+ * gemini-3.8-flash is the stronger model on paper but answered only 1 of its first 5 real calls (the rest were timeouts and
+ * a 503). Swapped on 2026-10-20: see spec.md > Experiment Log.
+ */
+export const REVIEW_MODELS = ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite"] as const;
 /** Criteria parsing: a fast Flash-Lite model, with one fallback. */
 export const PARSE_MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"] as const;
 

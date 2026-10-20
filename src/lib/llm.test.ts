@@ -46,12 +46,18 @@ const reviewInput = { criteria: BUILD_WITH_AI_BASICS, description, transcript };
 beforeEach(() => vi.stubEnv("LLM_MOCK", ""));
 afterEach(() => vi.unstubAllEnvs());
 
+describe("the chain order", () => {
+  it("puts gemini-3.6-flash first, then gemini-3.8-flash, then gemini-3.1-flash-lite (swapped 2026-10-20)", () => {
+    expect([...REVIEW_MODELS]).toEqual(["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite"]);
+  });
+});
+
 describe("model fallback on 503 or 429", () => {
   it("uses the first model when it answers, with one call", async () => {
     const { generate, calls } = script([reply(goodReview)]);
     const r = await reviewWithModel(reviewInput, generate);
-    expect(r).toMatchObject({ model: "gemini-3.8-flash", mock: false });
-    expect(calls.map((c) => c.model)).toEqual(["gemini-3.8-flash"]);
+    expect(r).toMatchObject({ model: "gemini-3.6-flash", mock: false });
+    expect(calls.map((c) => c.model)).toEqual(["gemini-3.6-flash"]);
   });
 
   it("goes 3.8 -> 3.6 -> 3.1-lite on 503 then 429, one attempt each, and reports who answered", async () => {
@@ -88,18 +94,18 @@ describe("a model that is too slow is skipped, like one that is busy", () => {
   it("our own timeout falls through to the next model", async () => {
     const { generate, calls } = script([abortError(), reply(goodReview)]);
     const r = await reviewWithModel(reviewInput, generate);
-    expect(calls.map((c) => c.model)).toEqual(["gemini-3.8-flash", "gemini-3.6-flash"]);
-    expect(r.model).toBe("gemini-3.6-flash");
+    expect(calls.map((c) => c.model)).toEqual(["gemini-3.6-flash", "gemini-3.8-flash"]);
+    expect(r.model).toBe("gemini-3.8-flash");
     expect(r.attempts.map((a) => [a.model, a.status])).toEqual([
-      ["gemini-3.8-flash", "timeout"],
-      ["gemini-3.6-flash", "ok"],
+      ["gemini-3.6-flash", "timeout"],
+      ["gemini-3.8-flash", "ok"],
     ]);
   });
 
   it("Gemini's own 504 DEADLINE_EXCEEDED falls through too", async () => {
     const { generate, calls } = script([apiError(504), reply(goodReview)]);
     const r = await reviewWithModel(reviewInput, generate);
-    expect(r.model).toBe("gemini-3.6-flash");
+    expect(r.model).toBe("gemini-3.8-flash");
     expect(calls).toHaveLength(2);
   });
 
@@ -126,8 +132,8 @@ describe("a model that is too slow is skipped, like one that is busy", () => {
     const badJson = reply("not json");
     const { generate, calls } = script([badJson, abortError(), reply(goodReview)]);
     const r = await reviewWithModel(reviewInput, generate);
-    expect(calls.map((c) => c.model)).toEqual(["gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.6-flash"]);
-    expect(r.model).toBe("gemini-3.6-flash");
+    expect(calls.map((c) => c.model)).toEqual(["gemini-3.6-flash", "gemini-3.6-flash", "gemini-3.8-flash"]);
+    expect(r.model).toBe("gemini-3.8-flash");
   });
 });
 
@@ -177,8 +183,8 @@ describe("Zod, and the one retry", () => {
   it("retries once, to the same model, with the exact problem attached", async () => {
     const { generate, calls } = script([reply(wrongName), reply(goodReview)]);
     const r = await reviewWithModel(reviewInput, generate);
-    expect(r.model).toBe("gemini-3.8-flash");
-    expect(calls.map((c) => c.model)).toEqual(["gemini-3.8-flash", "gemini-3.8-flash"]);
+    expect(r.model).toBe("gemini-3.6-flash");
+    expect(calls.map((c) => c.model)).toEqual(["gemini-3.6-flash", "gemini-3.6-flash"]);
     expect(calls[1].contents).toContain(calls[0].contents); // the original request is kept
     expect(calls[1].contents).toContain('Criterion 2 must be named exactly "Potential Impact"');
   });
@@ -208,16 +214,16 @@ describe("Zod, and the one retry", () => {
   it("treats a 503 on the retry as busy and moves to the next model with a fresh request", async () => {
     const { generate, calls } = script([reply(wrongName), apiError(503), reply(goodReview)]);
     const r = await reviewWithModel(reviewInput, generate);
-    expect(calls.map((c) => c.model)).toEqual(["gemini-3.8-flash", "gemini-3.8-flash", "gemini-3.6-flash"]);
+    expect(calls.map((c) => c.model)).toEqual(["gemini-3.6-flash", "gemini-3.6-flash", "gemini-3.8-flash"]);
     expect(calls[2].contents).not.toContain("previous reply was rejected");
-    expect(r.model).toBe("gemini-3.6-flash");
+    expect(r.model).toBe("gemini-3.8-flash");
   });
 
   it("the validated output goes through the real pipeline and the quotes are verified", async () => {
     const { generate } = script([reply(goodReview)]);
     const { output, model } = await reviewWithModel(reviewInput, generate);
     const response = buildReviewResponse(output, reviewInput, { model, mock: false });
-    expect(response.meta).toEqual({ model: "gemini-3.8-flash", mock: false });
+    expect(response.meta).toEqual({ model: "gemini-3.6-flash", mock: false });
     expect(response.criteria.map((c) => c.state)).toEqual(["verified", "verified", "unverifiable", "not-addressed"]);
   });
 
