@@ -1,3 +1,4 @@
+import { TEXT_ONLY_NOTE } from "@/lib/notes";
 import type { CriterionResult } from "@/lib/schema";
 import { PenCircle } from "./PenCircle";
 import { ScoreCircle } from "./ScoreCircle";
@@ -6,7 +7,7 @@ import { ScoreCircle } from "./ScoreCircle";
 // the circled score, the verdict, the "Fix this first" note. The user's own quoted words stay in the serif.
 
 export function CriterionCard({ number, result }: { number: number; result: CriterionResult }) {
-  const { state, score, verdict, fix, marks, droppedCount, name } = result;
+  const { state, score, verdict, fix, marks, droppedCount, name, judgedOnTextOnly } = result;
 
   return (
     <article className="rounded-sm border border-rule bg-paper p-4 shadow-sm" aria-label={name}>
@@ -36,6 +37,12 @@ export function CriterionCard({ number, result }: { number: number; result: Crit
       ) : (
         <div className="mt-3 space-y-3">
           <p className="font-hand text-[1.45rem] leading-snug text-redpen">{verdict}</p>
+
+          {judgedOnTextOnly && (
+            <p className="border-l-2 border-dashed border-redpen pl-2 font-hand text-[1.25rem] leading-snug text-redpen">
+              {TEXT_ONLY_NOTE}
+            </p>
+          )}
 
           {state === "not-addressed" ? (
             <p className="text-[0.95rem] text-grey-note">

@@ -326,7 +326,9 @@ describe("prompts: untrusted text stays in delimiters", () => {
     expect(s).toContain("<submission-abc12345>");
     expect(s).toMatch(/never instructions/i);
     expect(s).toMatch(/"flags"/);
-    expect(s).toMatch(/verbatim/i);
+    expect(s).toMatch(/verbatim and one sentence or less/i);
+    expect(s).toMatch(/Never put two sentences in one quote/);
+    expect(s).toMatch(/across a line break, a heading or a bullet/);
     expect(s).toMatch(/strict but fair/i);
     expect(s).toMatch(/Speak to the author directly as "you"/);
     expect(s).toMatch(/never as "the user"/);

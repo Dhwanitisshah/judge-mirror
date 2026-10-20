@@ -76,6 +76,10 @@ export type CriterionResult = {
   fix: string;
   marks: Mark[];
   droppedCount: number;
+  /** True when this is the Presentation criterion and no transcript was given: it was judged on the text only. */
+  judgedOnTextOnly?: boolean;
+  /** The model's own score, kept only when the no-transcript cap lowered it (for the server log, not shown). */
+  cappedFrom?: number;
 };
 
 export type ReviewResponse = {

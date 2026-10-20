@@ -11,6 +11,7 @@ import {
   type ReviewResponse,
   type Texts,
 } from "./schema";
+import { PRESENTATION_CAP_WITHOUT_TRANSCRIPT, isPresentation } from "./notes";
 import { deriveState, verifyCriterion, verifyFlag } from "./verify";
 
 /** Thrown when the model output breaks the contract. The message is fed back to the model on the one retry. */
@@ -36,20 +37,34 @@ export function buildReviewResponse(
   const output = parseModelOutput(rawOutput, input.criteria);
 
   const texts: Texts = { description: input.description, transcript: input.transcript };
+  const hasTranscript = Boolean(input.transcript?.trim());
 
   const criteria: CriterionResult[] = output.criteria.map((c) => {
     const { verified, droppedCount } = verifyCriterion(c.evidence, texts);
     const state = deriveState(c.evidence.length, verified.length);
     const unverifiable = state === "unverifiable";
+
+    let score = unverifiable ? null : c.score;
+    // Judges weigh the video. With no transcript, Presentation can only be judged on the text, so it is capped
+    // here in code (after Zod, like the null score above) and the card says so.
+    const textOnly = !hasTranscript && isPresentation(c.name) && !unverifiable;
+    let cappedFrom: number | undefined;
+    if (textOnly && score !== null && score > PRESENTATION_CAP_WITHOUT_TRANSCRIPT) {
+      cappedFrom = score;
+      score = PRESENTATION_CAP_WITHOUT_TRANSCRIPT;
+    }
+
     return {
       name: c.name,
       state,
-      score: unverifiable ? null : c.score,
+      score,
       // An unverifiable card shows nothing but "Couldn't verify, re-run", so its text never leaves the server.
       verdict: unverifiable ? "" : c.verdict,
       fix: unverifiable ? "" : c.fix,
       marks: verified,
       droppedCount,
+      ...(textOnly ? { judgedOnTextOnly: true } : {}),
+      ...(cappedFrom !== undefined ? { cappedFrom } : {}),
     };
   });
 

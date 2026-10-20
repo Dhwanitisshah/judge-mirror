@@ -76,6 +76,19 @@ Each criterion card shows:
   - [ ] Each fix is a question or an instruction. It does not contain suggested replacement wording for the user's text.
   - [ ] Nothing in the app outputs rewritten submission text.
 
+### Presentation Without a Transcript
+Judges weigh the video, and the app only sees the video if the user pastes its transcript. When the transcript box is empty (or holds only blank space):
+- The **Presentation** criterion is capped at **3**. If the review would have scored it 4 or 5, the card shows 3; a 1, 2 or 3 is left as it is.
+- The Presentation card carries a red-pen note: "Judged on your text only. Judges weigh the video; paste its transcript for a full mark."
+- No other criterion is affected. With a transcript pasted, nothing is capped and there is no note.
+- This is the criterion called "Presentation" (any capitalisation). A custom criterion with a different name is not treated this way.
+
+- As a first-time participant, I want to be told when my Presentation score is limited because the video was not judged, so that I know how to earn the rest.
+  - [ ] With no transcript, a Presentation score above 3 is shown as 3.
+  - [ ] With no transcript, the Presentation card shows the note above; no other card does.
+  - [ ] With a transcript, Presentation is not capped and shows no note.
+  - [ ] A transcript box holding only spaces counts as empty.
+
 ### Evidence Verification and the Red Pen
 Every evidence quote is checked against the user's input before it is shown. A quote that is found is underlined in red on the paper page, at its position in the text. It gets a numbered margin note linking it to its criterion, and it appears on the card. A quote that cannot be found is removed and never shown.
 
@@ -138,11 +151,12 @@ Under the cards, four items the user ticks themselves. The AI does not check or 
 - **Loading** — "Marking your paper…" shown on the paper itself, not a spinner on a blank page. A review can take up to about 30 seconds, so the loading state shows honest progress lines and a slow red-pen sweep over the user's text.
 - **LLM error or timeout** — a clear retry message. The inputs are preserved. If the AI service is busy, the app quietly tries the next model in a short list first, and shows the busy message only if all of them fail.
 - **Nothing persists beyond the session** — no accounts and no saved history (`scope.md > Explicitly Cut`). Within a session, Review again keeps the inputs and the Stage One ticks. Closing the app loses them.
-- **No transcript** — the paper shows only the Description page, with no tab for the transcript.
+- **No transcript** — the paper shows only the Description page, with no tab for the transcript. Presentation is capped at 3 and its card says it was judged on the text only (see Presentation Without a Transcript).
 
 ## Product Decisions
 
 - Equal weighting of all four preset criteria — stated by the learner. "Fix this first" ordering is lowest score first, ties broken by Design → Impact → Innovation → Presentation, shown as a small note under the scorecard. No overall total or average, because it would suggest more precision than the judging has.
+- With no transcript, Presentation is capped at 3 and says so on its card (learner decision, 2026-10-20, after the strong Satark submission scored a 5 on a video criterion from its text alone).
 - Review again keeps the Stage One ticks — they are facts about the repo, not the text, so resetting them would make users re-tick every time.
 - Custom criteria are confirmed as editable chips before marking — one extra click is worth it, because marking against misread criteria wastes the whole review.
 - The paper has two tabs (Description, Video transcript), each with its own underlines and a mark count, with consistent margin numbers across the tabs — so the user knows where to look.

@@ -120,7 +120,10 @@ export function InputScreen({
               id="transcript"
               rows={6}
               value={state.transcript}
-              onChange={(e) => dispatch({ type: "set", field: "transcript", value: e.target.value })}
+              onChange={(e) => {
+                setOpened(true); // once you have typed here the box stays open, even if you clear it
+                dispatch({ type: "set", field: "transcript", value: e.target.value });
+              }}
               placeholder="Paste what you say in your demo video."
               className={fieldClass}
             />

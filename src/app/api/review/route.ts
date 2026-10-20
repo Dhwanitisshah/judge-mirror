@@ -27,7 +27,8 @@ export async function POST(request: Request) {
     const { output, model, mock } = await reviewWithModel({ criteria, description, transcript });
     const response = buildReviewResponse(output, { criteria, description, transcript }, { model, mock });
     const dropped = response.criteria.reduce((n, c) => n + c.droppedCount, 0);
-    console.log(`review: model=${model} droppedCount=${dropped} elapsed=${Date.now() - started}ms`);
+    const capped = response.criteria.filter((c) => c.cappedFrom !== undefined).map((c) => `${c.name} ${c.cappedFrom}->${c.score}`);
+    console.log(`review: model=${model} droppedCount=${dropped} elapsed=${Date.now() - started}ms${capped.length ? ` capped(no transcript)=${capped.join(",")}` : ""}`);
     return Response.json(response);
   } catch (e) {
     return errorResponse(e);
