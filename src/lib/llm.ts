@@ -75,6 +75,8 @@ const STATUS: Record<LlmErrorCode, number> = {
 export function errorResponse(e: unknown): Response {
   const code: LlmErrorCode = e instanceof LlmError ? e.code : "server";
   if (!(e instanceof LlmError)) console.error("Unexpected error:", e);
+  // The browser only ever sees a generic message, so say the real reason here (for example a missing API key).
+  else if (e.code === "server" && e.message !== "server") console.error(`llm: ${e.message}`);
   return Response.json({ error: code }, { status: STATUS[code] });
 }
 

@@ -20,6 +20,8 @@ cp .env.example .env.local      # on Windows: copy .env.example .env.local
 npm run dev                     # then open http://localhost:3000
 ```
 
+If every review fails with "I couldn't mark your paper", look at the terminal running the server: a missing or wrong `GEMINI_API_KEY` is reported there.
+
 ### Mock mode (no API calls, no quota)
 
 Put `LLM_MOCK=1` in `.env.local` and restart the dev server. The server console prints `MOCK MODE`, and the Input screen offers a "Use the sample submission" button. Answers come from the sample data in [`fixtures/`](fixtures/) and still go through the real validation and quote checking, so the screens behave as in a real run. Mock results are sample data, not a judgement of whatever you paste. **Never set `LLM_MOCK` on a deployment.**
@@ -56,7 +58,7 @@ Rules worth knowing:
 ## Checks
 
 ```bash
-npm test                # 148 unit tests, no network
+npm test                # unit tests, no network
 npm run lint
 npm run typecheck       # generates Next.js's types, then runs tsc
 ```

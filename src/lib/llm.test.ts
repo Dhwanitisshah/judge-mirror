@@ -8,6 +8,7 @@ import {
   PER_MODEL_CAP_MS,
   REVIEW_MODELS,
   THINKING,
+  errorResponse,
   generateWithFallback,
   parseCriteriaWithModel,
   reviewWithModel,
@@ -400,5 +401,25 @@ describe("the Gemini JSON schema and the Zod contract describe the same shape", 
 describe("errors", () => {
   it("LlmError carries its code", () => {
     expect(new LlmError("timeout").code).toBe("timeout");
+  });
+});
+
+describe("errorResponse", () => {
+  it("answers with the code and status, and says the real reason in the server log for a server error", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = errorResponse(new LlmError("server", "GEMINI_API_KEY is not set"));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "server" }); // the browser gets nothing but the code
+    expect(log).toHaveBeenCalledWith("llm: GEMINI_API_KEY is not set");
+    log.mockRestore();
+  });
+
+  it("stays quiet for the expected failures, and maps each code to its status", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const [code, status] of [["timeout", 504], ["rate_limited", 429], ["bad_output", 502], ["refused", 502], ["too_long", 413]] as const) {
+      expect(errorResponse(new LlmError(code)).status).toBe(status);
+    }
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
   });
 });
