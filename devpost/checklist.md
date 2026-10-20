@@ -90,15 +90,15 @@ Build mode: fast (confirmed by the learner at the start of the build session)
 
 ## Code Tour and App Map
 
-- [ ] Learning activity complete — guided route, focused alternative, prior practice connected, or brief recap
-- [ ] Optional edit and transfer reflection addressed — offered/declined/already covered/not applicable as appropriate
-- [ ] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
+- [x] Learning activity complete — guided route, focused alternative, prior practice connected, or brief recap
+- [x] Optional edit and transfer reflection addressed — offered/declined/already covered/not applicable as appropriate
+- [x] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
 
-Activity and evidence: [what actually happened; real document/test/code references; unfinished work if interrupted]
-Route and stops: [actual paths and symbols; guided stops completed, or reference-only route]
-Edit outcome: [tried/kept/reverted/declined/not applicable; verification if changed]
-Reflection: [offered/answered/declined/already covered — personal answer belongs only in the ignored profile]
-Activity mode: [live app and editor, explicit static fallback, focused alternative, prior practice, or recap]
+Activity and evidence: Focused recap, not a code tour (the learner is an experienced plan-first user and asked for it short). It connects the learning goal (verify LLM output in code rather than trust it) to practice that happened during the build: the quote gate in `src/lib/verify.ts` and its tests (`verify.test.ts`, `review.test.ts`), five deliberate breakages of `verify.ts` that each made the suite fail, 0 quotes dropped across the real runs, and one real limit found (the strong submission's Presentation 5 from its text alone: real quotes passed the gate but the score was too generous, answered by the no-transcript cap in `review.ts`). Nothing was left unfinished.
+Route and stops: Reference-only route, not walked through interactively: (1) `src/lib/llm.ts` `generateWithFallback`, where a reply is accepted, retried once or rejected; (2) `src/lib/verify.ts` `verifyQuote`, the gate; (3) `src/lib/review.ts` `buildReviewResponse`, what code derives after the gate.
+Edit outcome: Not applicable: no wrap-up edit was made (the learner asked for it short).
+Reflection: Offered (one optional question at the end of the hand-off message); no answer recorded. Any personal answer belongs in the ignored learner profile, not here.
+Activity mode: Prior practice connected, with a recap and the generated map (`devpost/app-map.html`, source commit 6d444c4, checked for cited paths and symbols and for rendering at desktop and 390 px width).
 
 ## Revisions
 - Spike partly settled: `gemini-3.8-flash` and `gemini-3.6-flash` returned 503 UNAVAILABLE on every try, so key order and thinking level on the review model are unconfirmed (request shape, timeout option and Flash-Lite behaviour are settled). Rerun the spike before slice 4. Slice 4 also maps 503 to the same "free API is busy" message as 429, with no auto-retry. Details in `spec.md > Experiment Log`.

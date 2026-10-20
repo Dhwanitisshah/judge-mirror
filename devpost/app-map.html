@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Judge Mirror: app map</title>
+<style>
+  :root {
+    --desk: #ebe5d6; --paper: #faf7f0; --ink: #1f1b16; --red: #c0281f; --grey: #4f4a42; --rule: #d9d2c0;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--desk); color: var(--ink); font: 17px/1.55 Georgia, "Times New Roman", serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 2rem; margin: 0 0 4px; letter-spacing: -0.01em; }
+  h2 { font-size: 1.25rem; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--red); }
+  h3 { font-size: 1.05rem; margin: 0 0 4px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--grey); margin: 0 0 8px; }
+  code, .path { font-family: Consolas, "Courier New", monospace; font-size: 0.88em; background: #f1ecdf; padding: 1px 5px; border-radius: 3px; }
+  .card { background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; padding: 14px 16px; margin: 10px 0; }
+  .grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .grid .card { margin: 0; }
+  /* the one-action diagram */
+  .flow { list-style: none; margin: 12px 0; padding: 0; }
+  .flow li { background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; padding: 10px 14px; position: relative; }
+  .flow li + li { margin-top: 22px; }
+  .flow li + li::before { content: "\2193"; position: absolute; left: 18px; top: -22px; color: var(--red); font-size: 1.2rem; font-weight: bold; }
+  .flow .where { display: block; font-size: 0.85rem; color: var(--grey); margin-top: 2px; }
+  .flow .gate { border: 2px solid var(--red); }
+  .flow .gate strong { color: var(--red); }
+  .tag { display: inline-block; font-size: 0.78rem; border: 1px solid var(--red); color: var(--red); border-radius: 3px; padding: 0 6px; margin-left: 6px; vertical-align: 1px; }
+  .stop { border-left: 4px solid var(--red); }
+  .stop .n { color: var(--red); font-weight: bold; }
+  table { border-collapse: collapse; width: 100%; background: var(--paper); font-size: 0.95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border: 1px solid var(--rule); }
+  th { background: #f1ecdf; }
+  td:first-child { width: 42%; }
+  pre { background: var(--paper); border: 1px solid var(--rule); padding: 10px 14px; overflow-x: auto; font-size: 0.85rem; line-height: 1.5; }
+  .note { color: var(--grey); font-size: 0.92rem; }
+  ol.reuse { padding-left: 1.2em; } ol.reuse li { margin: 6px 0; }
+  @media (max-width: 480px) { body { font-size: 16px; } h1 { font-size: 1.6rem; } td:first-child { width: auto; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Judge Mirror: app map</h1>
+<p class="sub">A take-home guide to the finished code. Source commit <code>6d444c4</code>. This is a snapshot: the code will drift, so check <code>git log</code> if something doesn't match.</p>
+
+<h2>What it is</h2>
+<p>You paste a hackathon's judging criteria and your submission, and Judge Mirror marks up <em>your own text</em> in red pen: a score per criterion, the exact sentences that earned it, and one fix. The point of the build was one idea: <strong>the model's answer is a claim, and code is the judge of that claim.</strong> Every quote the model returns must be found in your text before you ever see it.</p>
+<div class="grid">
+  <div class="card"><h3>The screens</h3><p><span class="path">src/app/page.tsx</span> holds all state in one reducer (<span class="path">src/lib/state.ts</span>) and switches between input, chips, marking, results and error.</p></div>
+  <div class="card"><h3>The two routes</h3><p><span class="path">src/app/api/review</span> and <span class="path">src/app/api/parse-criteria</span>. Only these talk to Gemini, so the key never reaches the browser.</p></div>
+  <div class="card"><h3>The judge</h3><p><span class="path">src/lib/verify.ts</span> (with <span class="path">normalize.ts</span>) checks every quote and every injection flag against your real text. Pure functions, no network.</p></div>
+  <div class="card"><h3>The red pen</h3><p><span class="path">PaperPage.tsx</span> draws only what the server verified, using hand-drawn SVG strokes from <span class="path">src/lib/handdrawn.ts</span>.</p></div>
+</div>
+
+<h2>One action, end to end: "Review my submission"</h2>
+<ol class="flow">
+  <li><strong>The browser sends your text.</strong> <span class="where">src/app/page.tsx &rarr; <code>runReview()</code>, POST /api/review</span></li>
+  <li><strong>The route checks the size limits</strong> and asks for a review. <span class="where">src/app/api/review/route.ts &rarr; <code>POST</code>, <code>reviewWithModel()</code></span></li>
+  <li><strong>Gemini is asked for structured JSON.</strong> Busy or slow models are skipped (503, 429, 504, timeout), one attempt each, 25 s caps. A reply that breaks the contract gets exactly one retry, with the problem attached.
+    <span class="where">src/lib/llm.ts &rarr; <code>generateWithFallback()</code>, <code>REVIEW_MODELS</code>, <code>PER_MODEL_CAP_MS</code> &nbsp;|&nbsp; prompt in src/lib/prompts.ts</span></li>
+  <li class="gate"><strong>Trust boundary.</strong> Zod and the rules a schema can't say (right names, no evidence means score 1 or 2). Then every quote and flag is searched for in your text, and what isn't found is dropped. <span class="tag">code is the judge</span>
+    <span class="where">src/lib/review.ts &rarr; <code>parseModelOutput()</code>, <code>buildReviewResponse()</code> &nbsp;|&nbsp; src/lib/verify.ts &rarr; <code>verifyCriterion()</code>, <code>verifyFlag()</code></span></li>
+  <li><strong>Code derives what the model must not decide:</strong> an all-fabricated criterion gets <em>no score</em>; with no transcript, Presentation is capped at 3. <span class="where">src/lib/verify.ts &rarr; <code>deriveState()</code> &nbsp;|&nbsp; src/lib/review.ts (the null score and the cap), <code>isPresentation()</code> in src/lib/notes.ts</span></li>
+  <li><strong>The browser draws only verified marks</strong>, by character position, and shows which model answered. <span class="where">src/components/PaperPage.tsx, ResultsScreen.tsx &rarr; "Marked by &hellip;"</span></li>
+</ol>
+
+<h2>A route through the code (reference route, 3 stops)</h2>
+<p class="note">This is a suggested route. It was not walked through interactively during the build. Open the files in your editor and search for the symbol.</p>
+<div class="card stop"><p><span class="n">1.</span> <strong>Where the model's reply is accepted or rejected.</strong> <span class="path">src/lib/llm.ts</span>, search <code>generateWithFallback</code>. Follow <code>opts.validate(readJson(result))</code>: a bad reply triggers <code>retryNote()</code> once; a second bad reply becomes <code>bad_output</code>. A busy or slow model never reaches this check; it is skipped.</p></div>
+<div class="card stop"><p><span class="n">2.</span> <strong>The gate.</strong> <span class="path">src/lib/verify.ts</span>, search <code>verifyQuote</code>. A quote is cleaned (no ellipsis, 12 to 300 characters), matched case-sensitively against your text after smoothing whitespace, curly quotes and dashes (<code>normalizeWithMap</code> remembers where every character came from), and returned as positions in your <em>original</em> text. No match, no mark.</p></div>
+<div class="card stop"><p><span class="n">3.</span> <strong>What happens after the gate.</strong> <span class="path">src/lib/review.ts</span>, search <code>buildReviewResponse</code>. See how an unverifiable card has its score set to <code>null</code> and its verdict blanked, so fabricated text never leaves the server, and where the Presentation cap lowers a score.</p></div>
+
+<h2>To change this, start here</h2>
+<table>
+  <tr><th>If you want to&hellip;</th><th>Start in</th></tr>
+  <tr><td>Change how strict quote matching is (length limits)</td><td><span class="path">src/lib/limits.ts</span> (<code>MIN_QUOTE_CHARS</code>, <code>MAX_QUOTE_CHARS</code>), then <span class="path">verify.test.ts</span></td></tr>
+  <tr><td>Change what the model is told: rubric, voice, quote rules</td><td><span class="path">src/lib/prompts.ts</span> (<code>reviewSystemInstruction</code>)</td></tr>
+  <tr><td>Change the model order, time caps or thinking level</td><td><span class="path">src/lib/llm.ts</span> (<code>REVIEW_MODELS</code>, <code>PER_MODEL_CAP_MS</code>, <code>THINKING</code>)</td></tr>
+  <tr><td>Change the Presentation cap or its note</td><td><span class="path">src/lib/notes.ts</span> and <span class="path">review.ts</span></td></tr>
+  <tr><td>Change the preset criteria wording</td><td><span class="path">src/lib/presets.ts</span> (<code>BUILD_WITH_AI_BASICS</code>)</td></tr>
+  <tr><td>Change how marks look</td><td><span class="path">src/lib/handdrawn.ts</span>, <span class="path">PaperPage.tsx</span>, colours in <span class="path">src/app/globals.css</span></td></tr>
+  <tr><td>Try a screen without spending API quota</td><td>mock mode: <code>LLM_MOCK=1</code>, data in <span class="path">fixtures/</span></td></tr>
+</table>
+<p class="note">No small edit was made during the wrap-up, so nothing here points at a kept change.</p>
+
+<h2>A practice to reuse: make code the judge of the model's claims</h2>
+<div class="card">
+  <p><strong>The decision.</strong> Every quote the model returns as evidence must be found in the user's real text, or it is dropped (<code>src/lib/verify.ts</code>). The model never gets to say "trust me".</p>
+  <p><strong>The evidence it worked, and where it stopped.</strong></p>
+  <ul>
+    <li><code>src/lib/review.test.ts</code> runs the fixture through the real pipeline and checks that no fabricated quote, flag, verdict or fix appears anywhere in the JSON sent to the browser.</li>
+    <li><code>src/lib/verify.test.ts</code> was checked by breaking <code>verify.ts</code> on purpose five ways (no ellipsis rule, off-by-one minimum, no source fallback, wrong end offset, case-insensitive match). Each one made the tests fail. A test you have never seen fail proves little.</li>
+    <li>Across the real runs, 0 quotes were dropped: the models quoted faithfully here, so the gate had little to catch live. The Experiment Log in <code>devpost/spec.md</code> has the numbers.</li>
+    <li><strong>Verification has a limit.</strong> The strong submission scored Presentation 5 from its text alone. Its quotes were real, so the gate passed, yet the score was too generous for a criterion about a video. A check on <em>quotes</em> can't catch an over-generous <em>score</em>. The response was a second code rule (cap at 3 with no transcript, <code>review.ts</code>), tested in <code>review.test.ts</code>.</li>
+  </ul>
+  <p><strong>How to reuse it on another project.</strong></p>
+  <ol class="reuse">
+    <li>List what the model claims: facts, quotes, numbers, scores.</li>
+    <li>For each claim ask: <em>can code check this against ground truth?</em> If yes, check it and drop what fails, and never display the unchecked version.</li>
+    <li>If code can't check it, <em>bound</em> it (a range, a cap, a derived null) and say on screen that it was bounded.</li>
+    <li>Prove each check can fail: break it on purpose and watch a test go red.</li>
+  </ol>
+</div>
+
+<h2>Run it again</h2>
+<pre>npm install
+copy .env.example .env.local        # then add GEMINI_API_KEY (never commit .env.local)
+npm run dev                         # http://localhost:3000, mock mode when LLM_MOCK=1
+npm test                            # 148 tests, no network
+npm run typecheck                   # generates Next's types, then runs tsc
+
+# a real review, in a second terminal (PowerShell):
+npm run build
+$env:LLM_MOCK="0"; npx next start -p 3100       # http://localhost:3100</pre>
+<p class="note">Free-tier models are sometimes busy or slow; the app then tries the next model and shows which one answered. Don't paste anything private: the free tier may use content to improve Google's products.</p>
+
+</main>
+</body>
+</html>
