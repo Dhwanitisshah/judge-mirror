@@ -1,5 +1,7 @@
 # Judge Mirror
 
+**[Demo video](https://www.youtube.com/watch?v=gP8EJ_BFdkw)**
+
 Paste a hackathon's judging criteria and your submission text. Judge Mirror marks up your own text in red pen: a 1 to 5 score per criterion, the sentences that earned it (underlined, with numbered margin notes), and one fix per criterion.
 
 Every quote the AI model returns as evidence is checked against your text in code before it is shown. A quote that isn't found is dropped, and a criterion whose quotes were all dropped gets no score. See [How it works](#how-it-works).

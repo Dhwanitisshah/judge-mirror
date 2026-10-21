@@ -5,6 +5,8 @@ status: approved
 
 # Judge Mirror — Technical Spec
 
+**[Demo video](https://www.youtube.com/watch?v=gP8EJ_BFdkw)**
+
 ## How This Works, In Plain Language
 
 Judge Mirror is one Next.js app. The browser part shows the screens and holds everything the user typed. The server part has two small endpoints, and they are the only place that talks to the Gemini API, so the API key never reaches the browser.
